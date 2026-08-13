@@ -175,20 +175,34 @@ function renderSpots(){
   renderMap()
 }
 async function loadFacilities(){
+  count.textContent='読み込み中…';
+
+  // まず施設テーブルを全件取得。
+  // 削除済み(is_active=false)だけアプリ側で除外する。
   let {data,error}=await sb
     .from('facilities')
     .select('*')
-    .or('is_active.eq.true,is_active.is.null')
     .order('name');
 
   if(error){
-    console.error(error);
-    spotList.innerHTML='<div class="card empty">施設情報を読み込めませんでした</div>';
-    return
+    console.error('施設読み込みエラー',error);
+    count.textContent='0件';
+    spotList.innerHTML=`<div class="card empty">施設情報を読み込めませんでした<br><small>${esc(error.message||'Supabase接続を確認してください')}</small></div>`;
+    if(layer)layer.clearLayers();
+    return;
   }
 
-  spots=data||[];
-  renderSpots()
+  spots=(data||[]).filter(s=>s.is_active!==false);
+
+  // フィルター状態で全部隠れないよう初回同期時は全表示へ戻す
+  if(!spots.length){
+    count.textContent='0件';
+    spotList.innerHTML='<div class="card empty">Supabaseに表示可能な施設がありません</div>';
+    if(layer)layer.clearLayers();
+    return;
+  }
+
+  renderSpots();
 }
 function routeTo(id){
   let s=spots.find(x=>String(x.id)===String(id));if(!s)return;
@@ -203,7 +217,7 @@ function adminTopAction(){
   if(isAdmin)newFacility();
   else openAdmin();
 }
-async function openAdmin(){if(isAdmin){if(confirm('ログアウトしますか？')){await sb.auth.signOut();isAdmin=false;refreshAdmin();renderSpots()}return}openModal('adminModal')}async function adminLogin(e){e.preventDefault();let {data,error}=await sb.auth.signInWithPassword({email:adminEmail.value,password:adminPassword.value});if(error)return alert('ログインできませんでした');let {data:ok}=await sb.rpc('is_app_admin');isAdmin=!!ok;if(!isAdmin){await sb.auth.signOut();return alert('管理者権限がありません')}closeModal('adminModal');refreshAdmin();renderSpots()}function refreshAdmin(){
+async function openAdmin(){if(isAdmin){if(confirm('ログアウトしますか？')){await sb.auth.signOut();isAdmin=false;refreshAdmin();renderSpots()}return}openModal('adminModal')}async function adminLogin(e){e.preventDefault();let {data,error}=await sb.auth.signInWithPassword({email:adminEmail.value,password:adminPassword.value});if(error)return alert('ログインできませんでした');let {data:ok}=await sb.rpc('is_app_admin');isAdmin=!!ok;if(!isAdmin){await sb.auth.signOut();return alert('管理者権限がありません')}closeModal('adminModal');refreshAdmin();await loadFacilities()}function refreshAdmin(){
   adminStatus.textContent=isAdmin?'管理者：ログイン中':'管理者：未ログイン';
   adminBtn.textContent=isAdmin?'ログアウト':'ログイン';
   addFacilityBtn.textContent=isAdmin?'＋ 新しい施設を追加':'🔐 管理者ログイン';
