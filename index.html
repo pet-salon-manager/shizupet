@@ -22,7 +22,7 @@
 .routeCard{background:linear-gradient(180deg,#fffdf9,#f7f0e4);border:1px solid rgba(184,154,93,.16);border-radius:18px;padding:14px;margin-top:10px}.routeTitle{font-size:18px;font-weight:800;color:var(--pri);margin-bottom:4px}.routeModes{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}.routeModes button{border:1px solid rgba(184,154,93,.2);background:#fffaf1;border-radius:14px;padding:12px 6px;color:#4d412c;font-weight:700}.routeModes button span{display:block;font-size:22px;margin-bottom:4px}.routeOther{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}.routeOther button{border:0;border-radius:13px;padding:11px 8px;font-weight:700}.appleMapBtn{background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff}.googleMapBtn{background:#f0e4cb;color:#5d4926}.routeStatus{margin-top:8px;font-size:12px;color:var(--muted)}
 
 .adminStatus{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:16px;background:linear-gradient(180deg,#f7eedc,#efe0c3);border:1px solid rgba(184,154,93,.20);margin-bottom:14px}.adminDot{width:9px;height:9px;border-radius:50%;background:#a99f90;display:inline-block;margin-right:7px}.adminDot.on{background:#2f7b5c;box-shadow:0 0 0 4px rgba(47,123,92,.12)}.adminOnly{display:none!important}body.is-admin .adminOnly{display:flex!important}.syncBadge{font-size:11px;padding:5px 8px;border-radius:999px;background:#f4ead7;color:#6c5428;white-space:nowrap}.syncBadge.ok{background:#e4f1e8;color:#286044}.syncBadge.err{background:#f7e1dc;color:#8a342d}.formHint{font-size:11px;color:var(--muted);margin-top:-4px}.adminLoginActions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.adminLoginActions button{width:100%}
-</style>
+.lostAction{width:100%;border:0;background:transparent;text-align:left;padding:0}.lostRow{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.lostRow:last-child{border-bottom:0}.lostIcon{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,#f6ecd6,#e9d5aa);font-size:22px;flex:none}.lostInfo{flex:1}.lostInfo strong{display:block}.lostStatus{font-size:12px;font-weight:800;color:var(--muted)}.lostStatus.done{color:#1f7a5c}.lostArrow{font-size:20px;color:var(--muted)}.lostSection{border:1px solid rgba(184,154,93,.16);border-radius:18px;padding:14px;background:rgba(255,251,245,.72)}.lostSectionTitle{font-weight:800;color:var(--pri);margin-bottom:10px}.checkRow{display:flex;align-items:center;gap:10px;padding:9px 0;font-weight:700}.checkRow input{width:22px;height:22px}.lostPhotoThumb{width:96px;height:96px;border-radius:18px;object-fit:cover;border:1px solid rgba(184,154,93,.22);display:block;margin-bottom:10px}.lostNoPhoto{padding:18px;border-radius:14px;background:#f5efe4;color:var(--muted);text-align:center;margin-bottom:10px}</style>
 </head>
 <body>
 <div class="app">
@@ -86,7 +86,7 @@
     <div style="height:12px"></div>
     <div class="card"><h3>同行避難バッグ</h3><div id="safetyList" class="list"></div></div>
     <div style="height:12px"></div>
-    <div class="card"><h3>迷子対策</h3><div class="row"><div><strong>写真を最新に</strong><span class="muted">全身・顔・特徴が分かる写真</span></div><span>📸</span></div><div class="row"><div><strong>連絡先メモ</strong><span class="muted">飼い主・かかりつけ・緊急連絡先</span></div><span>☎️</span></div><div class="row"><div><strong>鑑札・迷子札</strong><span class="muted">装着状況を定期確認</span></div><span>🏷️</span></div></div>
+    <div class="card"><div class="titleRow"><h3>迷子対策</h3><span id="lostProgress" class="pill">0/3 完了</span></div><div id="lostPetPanel" class="list"></div></div>
   </main>
 
   <main id="more" class="view section">
@@ -119,6 +119,13 @@
   <label class="coordField"><span>緯度</span><small>南北の位置</small><input id="spotLat" type="number" step="any" placeholder="例：34.713"></label>
   <label class="coordField"><span>経度</span><small>東西の位置</small><input id="spotLng" type="number" step="any" placeholder="例：137.596"></label>
 </div><select id="spotApprox"><option value="true">地図位置：概略</option><option value="false">地図位置：正確</option></select><textarea id="spotMemo" placeholder="メモ・特徴"></textarea><div class="formHint">施設情報の追加・変更は管理者としてログインしている時だけSupabaseへ保存できます。</div><button class="btn" id="spotSaveBtn">保存</button></form></div></div>
+
+<div id="lostPetModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>迷子対策を編集</h2><button onclick="closeModal('lostPetModal')">✕</button></div><div id="lostPetName" class="muted" style="margin-bottom:12px"></div><form class="form" onsubmit="saveLostPet(event)">
+<div class="lostSection"><div class="lostSectionTitle">📸 最新写真</div><div id="lostPhotoPreview"></div><label class="checkRow"><input id="lostPhotoConfirmed" type="checkbox"><span>この写真は現在の姿として使える</span></label><button type="button" class="btn secondary" onclick="changeLostPhoto()">写真を登録・変更</button></div>
+<div class="lostSection"><div class="lostSectionTitle">☎️ 連絡先メモ</div><label class="fieldLabel"><span>飼い主の連絡先</span><small>迷子時に連絡を受けられる電話番号など</small><input id="lostOwnerContact" type="text" placeholder="例：090-1234-5678"></label><label class="fieldLabel"><span>予備の緊急連絡先</span><small>家族など、もう1つの連絡先</small><input id="lostBackupContact" type="text" placeholder="例：家族 090-xxxx-xxxx"></label><label class="fieldLabel"><span>かかりつけ動物病院</span><small>病院名・電話番号など</small><input id="lostVetContact" type="text" placeholder="例：○○動物病院 054-xxx-xxxx"></label></div>
+<div class="lostSection"><div class="lostSectionTitle">🏷️ 鑑札・迷子札</div><label class="checkRow"><input id="lostTagAttached" type="checkbox"><span>鑑札・迷子札を装着している</span></label><label class="fieldLabel"><span>迷子札・鑑札番号</span><small>分かる場合だけ入力</small><input id="lostTagNumber" type="text" placeholder="番号・記載内容"></label><label class="fieldLabel"><span>マイクロチップ番号</span><small>ペット情報から自動表示。ここで変更するとペット情報にも反映します。</small><input id="lostMicrochip" type="text" placeholder="15桁の番号など"></label></div>
+<label class="fieldLabel"><span>迷子時の特徴メモ</span><small>毛色・模様・首輪・性格など、見つける手掛かり</small><textarea id="lostFeatures" placeholder="例：左耳に白い模様、赤い首輪、人懐っこい"></textarea></label>
+<button class="btn">迷子対策を保存</button></form></div></div>
 
 <div id="adminModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>管理者ログイン</h2><button onclick="closeModal('adminModal')">✕</button></div><form class="form" onsubmit="adminLogin(event)"><input id="adminEmail" type="email" required placeholder="メールアドレス"><input id="adminPassword" type="password" required minlength="6" placeholder="パスワード"><button class="btn">ログイン</button><div class="adminLoginActions" style="grid-template-columns:1fr"><button type="button" class="btn ghost" onclick="adminLogout()">ログアウト</button></div><div id="adminLoginMessage" class="muted">Supabaseの app_admins に登録された管理者だけが施設を追加・編集・削除できます。</div></form></div></div>
 
@@ -199,6 +206,7 @@ function migrate(x){
   if(!x.activePetId&&x.pets[0]) x.activePetId=x.pets[0].id;
   x.health=x.health.map(h=>({...h,petId:h.petId??x.activePetId??null}));
   if(!x.safetyByPet){x.safetyByPet={}; if(x.activePetId&&x.safety) x.safetyByPet[String(x.activePetId)]=x.safety;}
+  if(!x.lostByPet)x.lostByPet={};
   if(!Array.isArray(x.facilityFavs)) x.facilityFavs=(x.spots||[]).filter(s=>s.fav).map(s=>String(s.id));
   return x;
 }
@@ -215,7 +223,7 @@ function editPet(id){let p=db.pets.find(x=>String(x.id)===String(id));if(!p)retu
 function savePet(e){e.preventDefault();let id=petEditId.value;let data={name:petName.value,type:petType.value,sex:petSex.value,breed:petBreed.value,birth:petBirth.value,weight:petWeight.value,microchip:petMicrochip.value,vet:petVet.value,emergencyPhone:petEmergencyPhone.value,allergies:petAllergies.value,conditions:petConditions.value,meds:petMeds.value,memo:petMemo.value,photo:petPhotoData.value||''};if(id){let p=db.pets.find(x=>String(x.id)===String(id));if(p)Object.assign(p,data)}else{let newId=Date.now();db.pets.unshift({id:newId,...data});db.activePetId=newId}closeModal('petModal');persist()}
 function calcAgeText(birth){if(!birth)return'未登録';let b=new Date(birth+'T00:00:00');let n=new Date();let y=n.getFullYear()-b.getFullYear();let m=n.getMonth()-b.getMonth();if(m<0||(m===0&&n.getDate()<b.getDate()))y--;if(y<1){let months=(n.getFullYear()-b.getFullYear())*12+n.getMonth()-b.getMonth();return Math.max(0,months)+'か月'}return y+'歳'}
 function openPetRecord(id){let p=db.pets.find(x=>String(x.id)===String(id));if(!p)return;let photo=p.photo?`<img class="recordPhoto" src="${p.photo}" alt="${esc(p.name)}の写真">`:`<div class="recordAvatar">${p.type==='猫'?'🐱':p.type==='犬'?'🐶':'🐾'}</div>`;let item=(label,value,full=false)=>`<div class="profileItem ${full?'full':''}"><div class="label">${label}</div><strong>${esc(value||'未登録')}</strong></div>`;recordBody.innerHTML=`<div class="recordHero">${photo}<div><h3 class="recordName">${esc(p.name)}</h3><div class="muted">${esc(p.breed||p.type)}${p.sex?' ・ '+esc(p.sex):''} ・ ${calcAgeText(p.birth)}</div></div></div><div class="sectionLabel">基本情報</div><div class="profileGrid">${item('種類',p.type)}${item('性別',p.sex)}${item('生年月日',p.birth)}${item('体重',p.weight?p.weight+' kg':'')}${item('マイクロチップ番号',p.microchip,true)}</div><div class="sectionLabel">医療・健康</div><div class="profileGrid">${item('かかりつけ動物病院',p.vet,true)}${item('緊急連絡先',p.emergencyPhone,true)}${item('アレルギー',p.allergies,true)}${item('持病・既往歴・手術歴',p.conditions,true)}${item('現在の薬・予防薬',p.meds,true)}${item('その他メモ',p.memo,true)}</div><div class="petActions" style="margin-top:16px"><button onclick="closeModal('recordModal');editPet('${p.id}')">✏️ カルテを編集</button></div>`;openModal('recordModal')}
-function deletePet(id){let p=db.pets.find(x=>String(x.id)===String(id));if(!p)return;if(!confirm(`${p.name} の登録情報と健康記録を削除しますか？`))return;db.pets=db.pets.filter(x=>String(x.id)!==String(id));db.health=db.health.filter(h=>String(h.petId)!==String(id));if(db.safetyByPet)delete db.safetyByPet[String(id)];if(String(db.activePetId)===String(id))db.activePetId=db.pets[0]?.id??null;persist()}
+function deletePet(id){let p=db.pets.find(x=>String(x.id)===String(id));if(!p)return;if(!confirm(`${p.name} の登録情報と健康記録を削除しますか？`))return;db.pets=db.pets.filter(x=>String(x.id)!==String(id));db.health=db.health.filter(h=>String(h.petId)!==String(id));if(db.safetyByPet)delete db.safetyByPet[String(id)];if(db.lostByPet)delete db.lostByPet[String(id)];if(String(db.activePetId)===String(id))db.activePetId=db.pets[0]?.id??null;persist()}
 function switchPet(id){db.activePetId=id;localStorage.setItem(K,JSON.stringify(db));renderAll()}
 function openHealthModal(){let p=activePet();if(!p){alert('先にペットを登録してください');openNewPet();return}healthModalPet.textContent=`対象：${p.name}`;healthDate.valueAsDate=new Date();openModal('healthModal')}
 function saveHealth(e){e.preventDefault();let p=activePet();if(!p)return;db.health.unshift({id:Date.now(),petId:p.id,type:healthType.value,date:healthDate.value,value:healthValue.value,memo:healthMemo.value});e.target.reset();closeModal('healthModal');persist()}
@@ -245,8 +253,60 @@ function spotIcon(type){return type==='動物病院'?'🏥':type==='トリミン
 function renderSpots(){if(document.getElementById('spotSummary')){let counts={};db.spots.forEach(s=>counts[s.area]=(counts[s.area]||0)+1);spotSummary.textContent=`登録 ${db.spots.length}件 ｜ 東部 ${counts['東部']||0}・中部 ${counts['中部']||0}・西部 ${counts['西部']||0}・伊豆 ${counts['伊豆']||0}`;}let q=(spotSearch?.value||'').toLowerCase();let xs=db.spots.filter(s=>(area==='すべて'||s.area===area)&&(type==='すべて'||s.type===type)&&(`${s.name} ${s.city} ${s.address||''} ${s.type} ${s.memo||''}`.toLowerCase().includes(q)));spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot"><div class="spotIcon">${spotIcon(s.type)}</div><div style="flex:1"><strong>${esc(s.name)}</strong><div class="muted">${esc(s.area)}・${esc(s.city||'市町未登録')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s.approx?'<div class="tag">📌 地図ピンは概略位置</div>':''}${s.memo?`<div class="tag">${esc(s.memo)}</div>`:''}<div class="spotActions"><button onclick="toggleFav('${s.id}')">${s.fav?'★ お気に入り':'☆ お気に入り'}</button>${s.url?`<button class="officialHp" onclick="window.open('${safeUrl(s.url)}','_blank','noopener')">🌐 公式HP</button>`:(isAdmin?`<button class="registerHp" onclick="editSpot('${s.id}')">🌐 HP登録</button>`:'')}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">☎️ 電話</button>`:''}<button onclick="focusSpot('${s.id}')">🧭 経路</button>${isAdmin?`<button class="editFacility" onclick="editSpot('${s.id}')">✏️ 編集</button><button class="deleteFacility" onclick="deleteSpot('${s.id}')">🗑️ 削除</button>`:''}</div></div></div>`).join(''):'<div class="empty">条件に合うスポットがありません</div>';favCount.textContent=(db.facilityFavs||[]).length;renderMapMarkers()}
 function currentSafety(){let p=activePet();if(!p)return{};return db.safetyByPet[String(p.id)]||(db.safetyByPet[String(p.id)]={})}
 function setSafety(i,v){let s=currentSafety();s[i]=v;localStorage.setItem(K,JSON.stringify(db));renderSafety()}
-function renderSafety(){let p=activePet();if(!p){safetyList.innerHTML='<div class="empty">先にペットを登録してください</div>';return}let s=currentSafety();safetyList.innerHTML=safetyItems.map((x,i)=>`<label class="row"><div><strong>${x}</strong></div><input type="checkbox" ${s[i]?'checked':''} onchange="setSafety(${i},this.checked)"></label>`).join('')}
+function renderSafety(){let p=activePet();if(!p){safetyList.innerHTML='<div class="empty">先にペットを登録してください</div>';renderLostPet();return}let s=currentSafety();safetyList.innerHTML=safetyItems.map((x,i)=>`<label class="row"><div><strong>${x}</strong></div><input type="checkbox" ${s[i]?'checked':''} onchange="setSafety(${i},this.checked)"></label>`).join('');renderLostPet()}
 function resetSafety(){let p=activePet();if(!p)return;db.safetyByPet[String(p.id)]={};persist()}
+
+function currentLost(){let p=activePet();if(!p)return{};db.lostByPet=db.lostByPet||{};return db.lostByPet[String(p.id)]||(db.lostByPet[String(p.id)]={})}
+function lostCompletion(){
+  let p=activePet(),d=currentLost();if(!p)return{photo:false,contact:false,tag:false,count:0};
+  let photo=!!(p.photo&&d.photoConfirmed);
+  let contact=!!((d.ownerContact||p.emergencyPhone||'').trim());
+  let tag=!!(d.tagAttached||String(d.tagNumber||'').trim()||String(p.microchip||'').trim());
+  return{photo,contact,tag,count:[photo,contact,tag].filter(Boolean).length}
+}
+function renderLostPet(){
+  let panel=document.getElementById('lostPetPanel'),progress=document.getElementById('lostProgress');if(!panel)return;
+  let p=activePet();if(!p){panel.innerHTML='<div class="empty">先にペットを登録してください</div>';if(progress)progress.textContent='0/3 完了';return}
+  let c=lostCompletion(),d=currentLost();
+  let row=(key,icon,title,desc,done)=>`<button type="button" class="lostAction" onclick="openLostPet('${key}')"><div class="lostRow"><div class="lostIcon">${icon}</div><div class="lostInfo"><strong>${title}</strong><div class="muted">${desc}</div><div class="lostStatus ${done?'done':''}">${done?'✓ 設定済み':'未設定・タップして設定'}</div></div><div class="lostArrow">›</div></div></button>`;
+  panel.innerHTML=
+    row('photo','📸','写真を最新に',p.photo?'登録写真を迷子時用に確認':'全身・顔・特徴が分かる写真を登録',c.photo)+
+    row('contact','☎️','連絡先メモ',(d.ownerContact||p.emergencyPhone)?'連絡先を保存済み':'飼い主・家族・かかりつけを保存',c.contact)+
+    row('tag','🏷️','鑑札・迷子札',d.tagAttached?'装着確認済み':'迷子札・鑑札・マイクロチップを確認',c.tag);
+  if(progress){progress.textContent=`${c.count}/3 完了`;progress.style.background=c.count===3?'#dff5e9':''}
+}
+function openLostPet(section){
+  let p=activePet();if(!p){alert('先にペットを登録してください');openNewPet();return}
+  let d=currentLost();
+  lostPetName.textContent=`対象：${p.name}`;
+  lostPhotoPreview.innerHTML=p.photo?`<img class="lostPhotoThumb" src="${p.photo}" alt="${esc(p.name)}の写真">`:'<div class="lostNoPhoto">写真がまだ登録されていません</div>';
+  lostPhotoConfirmed.checked=!!d.photoConfirmed;
+  lostOwnerContact.value=d.ownerContact||p.emergencyPhone||'';
+  lostBackupContact.value=d.backupContact||'';
+  lostVetContact.value=d.vetContact||p.vet||'';
+  lostTagAttached.checked=!!d.tagAttached;
+  lostTagNumber.value=d.tagNumber||'';
+  lostMicrochip.value=p.microchip||'';
+  lostFeatures.value=d.features||'';
+  openModal('lostPetModal');
+  setTimeout(()=>{let target=section==='contact'?lostOwnerContact:section==='tag'?lostTagAttached:null;if(target&&target.scrollIntoView)target.scrollIntoView({block:'center',behavior:'smooth'})},150)
+}
+function changeLostPhoto(){let p=activePet();if(!p)return;closeModal('lostPetModal');editPet(p.id)}
+function saveLostPet(e){
+  e.preventDefault();let p=activePet();if(!p)return;let d=currentLost();
+  d.photoConfirmed=lostPhotoConfirmed.checked;
+  d.ownerContact=lostOwnerContact.value.trim();
+  d.backupContact=lostBackupContact.value.trim();
+  d.vetContact=lostVetContact.value.trim();
+  d.tagAttached=lostTagAttached.checked;
+  d.tagNumber=lostTagNumber.value.trim();
+  d.features=lostFeatures.value.trim();
+  p.microchip=lostMicrochip.value.trim();
+  if(!p.emergencyPhone&&d.ownerContact)p.emergencyPhone=d.ownerContact;
+  if(!p.vet&&d.vetContact)p.vet=d.vetContact;
+  closeModal('lostPetModal');persist()
+}
+
 function exportData(){let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='shizupet-backup.json';a.click();URL.revokeObjectURL(a.href)}
 function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{db=migrate(JSON.parse(r.result));persist();alert('復元しました')}catch{alert('読み込みに失敗しました')}};r.readAsText(f)}
 function safeUrl(u){try{let x=new URL(u);return ['http:','https:'].includes(x.protocol)?x.href:'#'}catch{return '#'}}
