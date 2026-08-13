@@ -189,7 +189,8 @@ async function loadFacilities(){
 
   spots=data||[];
   renderSpots()
-}=await sb.from('facilities').select('*').eq('is_active',true).order('name');if(error){console.error(error);spotList.innerHTML='<div class="card empty">施設情報を読み込めませんでした</div>';return}spots=data||[];renderSpots()}function routeTo(id){
+}
+function routeTo(id){
   let s=spots.find(x=>String(x.id)===String(id));if(!s)return;
   trackEvent(s.id,'route');
   let p=getPos(s),destination=s.address?encodeURIComponent(s.address):(p?`${p[0]},${p[1]}`:'');
