@@ -174,7 +174,22 @@ function renderSpots(){
   spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot ${s.sponsored?'sponsorCard':(s.recommended?'recoCard':'')}"><div class="spotTop"><div class="icon">${iconFor(s.type)}</div><div style="flex:1">${s.sponsored?'<span class="prBadge">PR</span>':''}${s.trending?'<span class="hotBadge">🔥 話題</span>':''}${s.recommended?'<span class="recoBadge">⭐ おすすめ</span>':''}${couponActive(s)?'<span class="couponBadge">🎟️ クーポンあり</span>':''}<h3>${esc(s.name)}</h3><div class="muted">${esc(s.city||'静岡県')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s._d!=null?`<div class="tag">現在地から直線距離 約${s._d.toFixed(s._d<10?1:0)}km</div>`:''}<div class="actions">${s.url?`<button onclick="openOfficial('${s.id}')">🌐 公式HP</button>`:''}${s.phone?`<button onclick="callFacility('${s.id}')">☎️ 電話</button>`:''}${couponActive(s)?`<button class="couponAction" onclick="openCoupon('${s.id}')">🎟️ クーポン</button>`:''}<button class="primary" onclick="routeTo('${s.id}')">🧭 経路</button>${isAdmin?`<button class="hotAdmin" onclick="toggleTrending('${s.id}')">${s.trending?'🔥 話題解除':'🔥 話題指定'}</button><button class="recommend" onclick="toggleRecommended('${s.id}')">${s.recommended?'⭐ おすすめ解除':'☆ おすすめ指定'}</button><button onclick="editFacility('${s.id}')">✏️ 編集</button><button class="danger" onclick="deleteFacility('${s.id}')">削除</button>`:''}</div></div></div></div>`).join(''):'<div class="card empty">条件に合う施設がありません</div>';
   renderMap()
 }
-async function loadFacilities(){let {data,error}=await sb.from('facilities').select('*').eq('is_active',true).order('name');if(error){console.error(error);spotList.innerHTML='<div class="card empty">施設情報を読み込めませんでした</div>';return}spots=data||[];renderSpots()}function routeTo(id){
+async function loadFacilities(){
+  let {data,error}=await sb
+    .from('facilities')
+    .select('*')
+    .or('is_active.eq.true,is_active.is.null')
+    .order('name');
+
+  if(error){
+    console.error(error);
+    spotList.innerHTML='<div class="card empty">施設情報を読み込めませんでした</div>';
+    return
+  }
+
+  spots=data||[];
+  renderSpots()
+}=await sb.from('facilities').select('*').eq('is_active',true).order('name');if(error){console.error(error);spotList.innerHTML='<div class="card empty">施設情報を読み込めませんでした</div>';return}spots=data||[];renderSpots()}function routeTo(id){
   let s=spots.find(x=>String(x.id)===String(id));if(!s)return;
   trackEvent(s.id,'route');
   let p=getPos(s),destination=s.address?encodeURIComponent(s.address):(p?`${p[0]},${p[1]}`:'');
@@ -258,8 +273,10 @@ function editFacility(id){
   e.preventDefault();
   if(!isAdmin){alert('管理者ログインが必要です');return}
 
+  const editing=!!facilityId.value.trim();
   let id=facilityId.value.trim();
-  let row={
+
+  const row={
     name:facilityName.value.trim(),
     area:facilityArea.value,
     city:facilityCity.value.trim(),
@@ -279,25 +296,44 @@ function editFacility(id){
     is_active:true
   };
 
-  if(!row.name){alert('施設名を入力してください');return}
+  if(!row.name){
+    alert('施設名を入力してください');
+    return
+  }
 
   let result;
-  if(id){
+  if(editing){
     result=await sb.from('facilities').update(row).eq('id',id).select('*').single();
   }else{
     id='f-'+(crypto.randomUUID?crypto.randomUUID():Date.now());
     result=await sb.from('facilities').insert({id,...row}).select('*').single();
   }
 
-  if(result.error){
+  if(result.error||!result.data){
     console.error(result.error);
     alert('保存できませんでした。Supabaseの権限設定を確認してください。');
     return
   }
 
   closeModal('facilityModal');
+
+  // 保存した施設をその場で表示
+  const saved=result.data;
+  const idx=spots.findIndex(s=>String(s.id)===String(saved.id));
+  if(idx>=0)spots[idx]=saved;
+  else spots.unshift(saved);
+
+  activeType='すべて';
+  hotOnly=false;
+  if(typeof hotFilterBtn!=='undefined')hotFilterBtn.classList.remove('active');
+  if(typeof search!=='undefined')search.value='';
+  setupFilters();
+  renderSpots();
+
+  // Supabaseから再同期
   await loadFacilities();
-  alert(id && facilityId.value ? '施設情報を更新しました' : '新しい施設を追加しました');
+
+  alert(editing?'施設情報を更新しました':'新しい施設を追加しました');
 }
 async function deleteFacility(id){if(!isAdmin)return;let s=spots.find(x=>String(x.id)===String(id));if(!s||!confirm(`「${s.name}」を削除しますか？`))return;let {error}=await sb.from('facilities').update({is_active:false}).eq('id',id);if(error)return alert('削除できませんでした');await loadFacilities()}
 async function init(){setupFilters();initMap();let {data}=await sb.auth.getSession();if(data.session){let {data:ok}=await sb.rpc('is_app_admin');isAdmin=!!ok}refreshAdmin();await loadFacilities();locateMe(true)}init();
