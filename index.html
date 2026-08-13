@@ -213,7 +213,7 @@ function migrate(x){
   return x;
 }
 function persist(){localStorage.setItem(K,JSON.stringify(db));renderAll()}
-function activePet(){return db.pets.find(p=>String(p.id)===String(db.activePetId))||db.pets[0]||null}
+function activePet(){let p=db.pets.find(p=>String(p.id)===String(db.activePetId))||db.pets[0]||null;if(p&&String(db.activePetId)!==String(p.id))db.activePetId=p.id;return p}
 function go(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.go===id));window.scrollTo({top:0,behavior:'smooth'});if(id==='home')setTimeout(()=>{if(map)map.invalidateSize()},160)}
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
@@ -258,6 +258,22 @@ function openCoupon(id){let s=db.spots.find(x=>String(x.id)===String(id));if(!s|
 function renderFeatured(){let sec=document.getElementById('featuredSection'),list=document.getElementById('featuredList');if(!sec||!list)return;let xs=sortSpotsForDisplay(db.spots.filter(s=>s.recommended&&s.is_active!==false)).slice(0,8);sec.style.display=xs.length?'block':'none';list.innerHTML=xs.map(s=>`<div class="featuredMini" onclick="focusSpot('${s.id}')">${s.sponsored?'<span class="prBadge">PR</span>':''}<span class="recoBadge">⭐ おすすめ</span>${isCouponActive(s)?'<span class="couponBadge">🎟️ クーポン</span>':''}<strong>${esc(s.name)}</strong><div class="muted">${esc(s.city||'静岡県')}・${esc(s.type)}</div></div>`).join('')}
 function renderSpots(){let q=(spotSearch?.value||'').toLowerCase();let xs=sortSpotsForDisplay(db.spots.filter(s=>(area==='すべて'||s.area===area)&&(type==='すべて'||s.type===type)&&(`${s.name} ${s.city} ${s.type} ${s.memo||''} ${s.address||''}`.toLowerCase().includes(q))));spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot ${s.recommended?'recoCard':''}"><div class="spotIcon">${s.type==='動物病院'?'🏥':s.type==='トリミング'?'✂️':s.type==='ドッグラン'?'🐕':s.type==='宿泊'?'🏨':s.type==='ペット用品'?'🛍️':'📍'}</div><div style="flex:1">${s.sponsored?'<span class="prBadge">PR</span>':''}${s.recommended?'<span class="recoBadge">⭐ おすすめ</span>':''}${isCouponActive(s)?'<span class="couponBadge">🎟️ クーポンあり</span>':''}<strong>${esc(s.name)}</strong><div class="muted">${esc(s.area)}・${esc(s.city||'市町未登録')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s.memo?`<div class="tag">${esc(s.memo)}</div>`:''}<div class="spotActions"><button onclick="toggleFav('${s.id}')">${s.fav?'★ お気に入り':'☆ お気に入り'}</button>${isCouponActive(s)?`<button class="couponBtn" onclick="openCoupon('${s.id}')">🎟️ クーポン</button>`:''}${s.url?`<button class="officialHp" onclick="window.open('${safeUrl(s.url)}','_blank','noopener')">🌐 公式HP</button>`:(isAdmin?`<button class="registerHp" onclick="editSpot('${s.id}')">🌐 HP登録</button>`:'')}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">☎️ 電話</button>`:''}<button onclick="focusSpot('${s.id}')">🧭 経路</button>${isAdmin?`<button class="recoAdmin" onclick="toggleRecommended('${s.id}')">${s.recommended?'⭐ おすすめ解除':'☆ おすすめ指定'}</button><button class="editFacility" onclick="editSpot('${s.id}')">✏️ 編集</button><button class="deleteFacility" onclick="deleteSpot('${s.id}')">🗑️ 削除</button>`:''}</div></div></div>`).join(''):'<div class="empty">条件に合うスポットがありません</div>';favCount.textContent=db.spots.filter(s=>s.fav).length;renderFeatured()}
 async function toggleRecommended(id){if(!isAdmin){alert('管理者ログインが必要です');return}let s=db.spots.find(x=>String(x.id)===String(id));if(!s)return;let next=!s.recommended;let{error}=await sb.from('facilities').update({recommended:next}).eq('id',s.id);if(error){alert('おすすめ設定を変更できませんでした');return}s.recommended=next;renderSpots()}
+function currentSafety(){
+  let p=activePet();
+  if(!p)return {};
+  db.safetyByPet=db.safetyByPet||{};
+  let key=String(p.id);
+  if(!db.safetyByPet[key])db.safetyByPet[key]={};
+  return db.safetyByPet[key];
+}
+function setSafety(index,checked){
+  let p=activePet();
+  if(!p)return;
+  let s=currentSafety();
+  s[index]=!!checked;
+  localStorage.setItem(K,JSON.stringify(db));
+  renderSafety();
+}
 function renderSafety(){let p=activePet();if(!p){safetyList.innerHTML='<div class="empty">先にペットを登録してください</div>';renderLostPet();return}let s=currentSafety();safetyList.innerHTML=safetyItems.map((x,i)=>`<label class="row"><div><strong>${x}</strong></div><input type="checkbox" ${s[i]?'checked':''} onchange="setSafety(${i},this.checked)"></label>`).join('');renderLostPet()}
 function resetSafety(){let p=activePet();if(!p)return;db.safetyByPet[String(p.id)]={};persist()}
 

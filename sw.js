@@ -1,4 +1,4 @@
-const CACHE='shizupet-buttons-map-fix-v10';
+const CACHE='shizupet-safety-fix-v11';
 const CORE=['./','./index.html','./manifest.webmanifest'];
 
 self.addEventListener('install',event=>{
