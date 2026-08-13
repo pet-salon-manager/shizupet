@@ -431,6 +431,71 @@ async function deleteSpot(id){
   setSyncState('ok','削除済み');
   alert(`「${s.name}」を削除しました`);
 }
+function toggleFav(id){
+  let ids=new Set((db.facilityFavs||[]).map(String));
+  let k=String(id);
+  ids.has(k)?ids.delete(k):ids.add(k);
+  db.facilityFavs=[...ids];
+  db.spots=db.spots.map(s=>String(s.id)===k?{...s,fav:ids.has(k)}:s);
+  localStorage.setItem(K,JSON.stringify(db));
+  renderSpots();
+}
+function openAdminLogin(){
+  if(currentAdminUser&&document.getElementById('adminEmail'))adminEmail.value=currentAdminUser.email||'';
+  if(document.getElementById('adminLoginMessage'))adminLoginMessage.textContent=isAdmin?'管理者としてログイン中です。施設情報を編集できます。':'管理者アカウントでログインしてください。';
+  openModal('adminModal')
+}
+async function adminLogin(e){
+  e.preventDefault();
+  if(!sb){adminLoginMessage.textContent='Supabaseに接続できていません。';return}
+  adminLoginMessage.textContent='ログイン中…';
+  let{error}=await sb.auth.signInWithPassword({email:adminEmail.value.trim(),password:adminPassword.value});
+  if(error){adminLoginMessage.textContent='ログインできませんでした：'+error.message;return}
+  adminPassword.value='';
+  await refreshAdminState();
+  if(isAdmin){adminLoginMessage.textContent='管理者ログインしました。';setTimeout(()=>closeModal('adminModal'),400)}
+  else adminLoginMessage.textContent='ログインしましたが、このアカウントには管理者権限がありません。'
+}
+async function adminSignup(){
+  if(!sb)return;
+  let email=adminEmail.value.trim(),password=adminPassword.value;
+  if(!email||password.length<6){adminLoginMessage.textContent='メールアドレスと6文字以上のパスワードを入力してください。';return}
+  let{error}=await sb.auth.signUp({email,password});
+  adminLoginMessage.textContent=error?('作成できませんでした：'+error.message):'アカウントを作成しました。'
+}
+async function adminLogout(){
+  if(sb)await sb.auth.signOut();
+  isAdmin=false;currentAdminUser=null;
+  refreshAdminUI();
+  closeModal('adminModal')
+}
+async function refreshAdminState(){
+  if(!sb){refreshAdminUI();return}
+  let{data:{session}}=await sb.auth.getSession();
+  currentAdminUser=session?.user||null;
+  isAdmin=false;
+  if(currentAdminUser){let{data,error}=await sb.rpc('is_app_admin');if(!error)isAdmin=!!data}
+  refreshAdminUI()
+}
+function refreshAdminUI(){
+  document.body.classList.toggle('is-admin',isAdmin);
+  let t=document.getElementById('adminStatusText'),e=document.getElementById('adminEmailText'),d=document.getElementById('adminDot');
+  if(t)t.textContent=isAdmin?'管理者：ログイン中':currentAdminUser?'一般アカウント：ログイン中':'管理者：未ログイン';
+  if(e)e.textContent=currentAdminUser?.email||(facilitiesLoaded?'施設情報はSupabaseと同期済み':'施設情報はSupabaseから表示します');
+  if(d)d.classList.toggle('on',isAdmin);
+  if(document.getElementById('spotList'))renderSpots()
+}
+async function initSupabase(){
+  if(!sb){setSyncState('err','Supabase未接続');return}
+  try{
+    await refreshAdminState();
+    sb.auth.onAuthStateChange(()=>setTimeout(refreshAdminState,0));
+    await loadFacilities()
+  }catch(err){console.error('Supabase初期化エラー',err);setSyncState('err','接続エラー')}
+}
+function petChips(){
+  return db.pets.map(p=>`<button type="button" class="petChip ${String(p.id)===String(db.activePetId)?'active':''}" onclick="switchPet('${p.id}')">${p.type==='猫'?'🐱':p.type==='犬'?'🐶':'🐾'} ${esc(p.name)}</button>`).join('')
+}
 function renderPets(){let p=activePet();petSwitcher.innerHTML=petChips();healthPetLabel.innerHTML=petChips();safetyPetLabel.innerHTML=petChips();let el=document.getElementById('petCard');if(!p){el.innerHTML='<div class="empty">🐾 まだペットが登録されていません<br><button class="btn" style="margin-top:12px" onclick="openNewPet()">最初の1匹を登録</button></div>';return}el.innerHTML=`<div class="pet">${p.photo?`<img class="petPhoto" src="${p.photo}" alt="${esc(p.name)}の写真">`:`<div class="avatar">${p.type==='猫'?'🐱':p.type==='犬'?'🐶':'🐾'}</div>`}<div class="petMain"><h3>${esc(p.name)}</h3><div class="muted">${esc(p.breed||p.type)} ${p.weight?`・${esc(p.weight)}kg`:''}${p.birth?` ・ ${esc(p.birth)}`:''}</div><div style="margin-top:5px">${p.memo?`<span class="pill">📝 ${esc(p.memo)}</span>`:''}</div><div class="petActions"><button onclick="openPetRecord('${p.id}')">🩺 カルテ</button><button onclick="editPet('${p.id}')">✏️ 編集</button><button class="delete" onclick="deletePet('${p.id}')">🗑️ 削除</button></div></div></div>`}
 function renderHealth(){let p=activePet();let xs=p?db.health.filter(h=>String(h.petId)===String(p.id)):[];healthCount.textContent=xs.length+'件';let w=xs.find(x=>x.type==='体重');weightKpi.textContent=w?String(w.value).replace(/kg/i,'')+' kg':(p?.weight?p.weight+' kg':'-- kg');healthList.innerHTML=xs.length?xs.map(h=>`<div class="row"><div><strong>${esc(h.type)} ・ ${esc(h.value||'記録')}</strong><span class="muted">${esc(h.date)} ${h.memo?'・'+esc(h.memo):''}</span></div><button class="btn secondary" onclick="deleteHealth('${h.id}')">削除</button></div>`).join(''):'<div class="empty">この子の健康記録はまだありません</div>';todayChecks.innerHTML=xs.slice(0,3).map(h=>`<div class="row"><div><strong>${esc(h.type)}</strong><span class="muted">${esc(h.value||'')} ${esc(h.date)}</span></div><span>✓</span></div>`).join('')||'<div class="empty">「記録」から今日の状態を残せます</div>';let future=xs.filter(h=>h.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date))[0];nextPlan.textContent=future?future.date.slice(5).replace('-','/'): '未登録'}
 function deleteHealth(id){db.health=db.health.filter(x=>String(x.id)!==String(id));persist()}
@@ -657,7 +722,22 @@ async function focusSpot(id){
     openRouteSheet(s.id)
   },240)
 }
-function renderAll(){if(db.pets.length&&!activePet())db.activePetId=db.pets[0].id;renderPets();renderHealth();setupFilters();renderSpots();renderSafety();localStorage.setItem(K,JSON.stringify(db));setTimeout(initMap,30)}
+function safeRender(name,fn){try{fn()}catch(err){console.error(name+' エラー',err)}}
+function ensureLeaflet(){
+  if(typeof L!=='undefined'){initMap();return}
+  if(document.getElementById('leafletFallback'))return;
+  let s=document.createElement('script');s.id='leafletFallback';s.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';s.onload=()=>initMap();s.onerror=()=>{let el=document.getElementById('shizuokaMap');if(el)el.innerHTML='<div class="empty">地図を読み込めませんでした。通信状態を確認して再読み込みしてください。</div>'};document.head.appendChild(s)
+}
+function renderAll(){
+  if(db.pets.length&&!activePet())db.activePetId=db.pets[0].id;
+  safeRender('ペット表示',renderPets);
+  safeRender('健康表示',renderHealth);
+  safeRender('施設フィルター',setupFilters);
+  safeRender('施設一覧',renderSpots);
+  safeRender('防災表示',renderSafety);
+  try{localStorage.setItem(K,JSON.stringify(db))}catch(err){console.warn('保存エラー',err)}
+  setTimeout(ensureLeaflet,30)
+}
 document.getElementById('today').innerHTML=`<div class="badge">${new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',weekday:'short'}).format(new Date())}</div>`;
 renderAll();
 initSupabase();
