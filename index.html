@@ -244,7 +244,13 @@ function switchPet(id){db.activePetId=id;localStorage.setItem(K,JSON.stringify(d
 function openHealthModal(){let p=activePet();if(!p){alert('先にペットを登録してください');openNewPet();return}healthModalPet.textContent=`対象：${p.name}`;healthDate.valueAsDate=new Date();openModal('healthModal')}
 function saveHealth(e){e.preventDefault();let p=activePet();if(!p)return;db.health.unshift({id:Date.now(),petId:p.id,type:healthType.value,date:healthDate.value,value:healthValue.value,memo:healthMemo.value});e.target.reset();closeModal('healthModal');persist()}
 function applyFacilityFavs(rows){let favs=new Set((db.facilityFavs||[]).map(String));return (rows||[]).map(r=>({...r,fav:favs.has(String(r.id))}))}
-async function loadFacilities(){if(!sb){setSyncState('err','Supabase未接続');return false}setSyncState('', '同期中');let{data,error}=await sb.from('facilities').select('*').eq('is_active',true).order('area').order('city').order('name');if(error){console.error(error);setSyncState('err','接続エラー');return false}let serverRows=applyFacilityFavs(data||[]);
+const FACILITY_OVERRIDE_KEY='shizupet-facility-overrides-v1';
+let facilityOverrides=JSON.parse(localStorage.getItem(FACILITY_OVERRIDE_KEY)||'{}');
+function rememberFacilityOverride(s){if(!s?.id)return;facilityOverrides[String(s.id)]={...s,_savedAt:Date.now()};localStorage.setItem(FACILITY_OVERRIDE_KEY,JSON.stringify(facilityOverrides))}
+function mergeFacilityOverride(serverRow){let o=facilityOverrides[String(serverRow.id)];if(!o)return serverRow;let st=Date.parse(serverRow.updated_at||0)||0;let ot=Date.parse(o.updated_at||0)||Number(o._savedAt||0);if(ot>=st)return {...serverRow,...o};delete facilityOverrides[String(serverRow.id)];localStorage.setItem(FACILITY_OVERRIDE_KEY,JSON.stringify(facilityOverrides));return serverRow}
+function clearFacilityOverride(id){delete facilityOverrides[String(id)];localStorage.setItem(FACILITY_OVERRIDE_KEY,JSON.stringify(facilityOverrides))}
+
+async function loadFacilities(){if(!sb){setSyncState('err','Supabase未接続');return false}setSyncState('', '同期中');let{data,error}=await sb.from('facilities').select('*').eq('is_active',true).order('area').order('city').order('name');if(error){console.error(error);setSyncState('err','接続エラー');return false}let serverRows=applyFacilityFavs(data||[]).map(mergeFacilityOverride);
 let uniqueRows=[];let seenServerIds=new Set();
 for(let r of serverRows){let k=String(r.id);if(seenServerIds.has(k))continue;seenServerIds.add(k);uniqueRows.push(r)}
 db.spots=uniqueRows;facilitiesLoaded=true;localStorage.setItem(K,JSON.stringify(db));setSyncState('ok','同期済み');renderSpots();renderFeatured();if(map&&spotLayer)renderMapMarkers();return true}
@@ -345,6 +351,8 @@ async function saveSpot(e){
     fav:(db.facilityFavs||[]).map(String).includes(id)
   };
 
+  rememberFacilityOverride(saved);
+
   const idx=db.spots.findIndex(x=>String(x.id)===id);
   if(idx>=0)db.spots[idx]=saved;
   else db.spots.unshift(saved);
@@ -360,10 +368,8 @@ async function saveSpot(e){
   renderFeatured();
   if(map&&spotLayer)renderMapMarkers();
 
-  // 最後にSupabase全件と同期
-  await loadFacilities();
-
   showSavedFacilitySummary(saved);
+  setTimeout(()=>{loadFacilities().catch(console.error)},1200);
 }
 async function deleteSpot(id){
   if(!isAdmin){alert('管理者ログインが必要です');return}
@@ -402,6 +408,7 @@ async function deleteSpot(id){
 
   // ローカル表示から即時除去
   db.spots=db.spots.filter(x=>String(x.id)!==key);
+  clearFacilityOverride(key);
 
   // お気に入りIDからも除去
   db.facilityFavs=(db.facilityFavs||[]).filter(x=>String(x)!==key);
@@ -507,7 +514,7 @@ function isCouponActive(s){return !!(s&&s.coupon_enabled&&String(s.coupon_title|
 function sortSpotsForDisplay(xs){return [...xs].sort((a,b)=>Number(!!b.recommended)-Number(!!a.recommended)||Number(!!b.sponsored)-Number(!!a.sponsored)||Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name||'').localeCompare(String(b.name||''),'ja'))}
 function openCoupon(id){let s=db.spots.find(x=>String(x.id)===String(id));if(!s||!isCouponActive(s))return;couponBody.innerHTML=`<div class="couponBox">${s.sponsored?'<span class="prBadge">PR</span> ':''}<strong style="font-size:19px">${esc(s.name)}</strong><h3>${esc(s.coupon_title||'クーポン')}</h3>${s.coupon_code?`<div class="couponCode">${esc(s.coupon_code)}</div>`:''}<div class="muted">${esc(s.coupon_terms||'利用時にこの画面を店舗スタッフへ提示してください。')}</div></div>`;openModal('couponModal')}
 function renderFeatured(){let sec=document.getElementById('featuredSection'),list=document.getElementById('featuredList');if(!sec||!list)return;let xs=sortSpotsForDisplay(db.spots.filter(s=>s.recommended&&s.is_active!==false)).slice(0,8);sec.style.display=xs.length?'block':'none';list.innerHTML=xs.map(s=>`<div class="featuredMini" onclick="focusSpot('${s.id}')">${s.sponsored?'<span class="prBadge">PR</span>':''}<span class="recoBadge">⭐ おすすめ</span>${isCouponActive(s)?'<span class="couponBadge">🎟️ クーポン</span>':''}<strong>${esc(s.name)}</strong><div class="muted">${esc(s.city||'静岡県')}・${esc(s.type)}</div></div>`).join('')}
-function renderSpots(){let q=(spotSearch?.value||'').toLowerCase();let xs=sortSpotsForDisplay(db.spots.filter(s=>(area==='すべて'||s.area===area)&&(type==='すべて'||s.type===type)&&(`${s.name} ${s.city} ${s.type} ${s.memo||''} ${s.address||''}`.toLowerCase().includes(q))));spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot ${s.recommended?'recoCard':''}"><div class="spotIcon">${s.type==='動物病院'?'🏥':s.type==='トリミング'?'✂️':s.type==='ドッグラン'?'🐕':s.type==='宿泊'?'🏨':s.type==='ペット用品'?'🛍️':'📍'}</div><div style="flex:1">${s.sponsored?'<span class="prBadge">PR</span>':''}${s.recommended?'<span class="recoBadge">⭐ おすすめ</span>':''}${isCouponActive(s)?'<span class="couponBadge">🎟️ クーポンあり</span>':''}<strong>${esc(s.name)}</strong><div class="muted">${esc(s.area)}・${esc(s.city||'市町未登録')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s.memo?`<div class="tag">${esc(s.memo)}</div>`:''}<div class="spotActions"><button onclick="toggleFav('${s.id}')">${s.fav?'★ お気に入り':'☆ お気に入り'}</button>${isCouponActive(s)?`<button class="couponBtn" onclick="openCoupon('${s.id}')">🎟️ クーポン</button>`:''}${s.url?`<button class="officialHp" onclick="window.open('${safeUrl(s.url)}','_blank','noopener')">🌐 公式HP</button>`:(isAdmin?`<button class="registerHp" onclick="editSpot('${s.id}')">🌐 HP登録</button>`:'')}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">☎️ 電話</button>`:''}<button onclick="focusSpot('${s.id}')">🧭 経路</button>${isAdmin?`<button class="recoAdmin" onclick="toggleRecommended('${s.id}')">${s.recommended?'⭐ おすすめ解除':'☆ おすすめ指定'}</button><button class="editFacility" onclick="editSpot('${s.id}')">✏️ 編集</button><button class="deleteFacility" onclick="deleteSpot('${s.id}')">🗑️ 削除</button>`:''}</div></div></div>`).join(''):'<div class="empty">条件に合うスポットがありません</div>';favCount.textContent=db.spots.filter(s=>s.fav).length;renderFeatured()}
+function renderSpots(){let q=(spotSearch?.value||'').toLowerCase();let xs=sortSpotsForDisplay(db.spots.filter(s=>(area==='すべて'||s.area===area)&&(type==='すべて'||s.type===type)&&(`${s.name} ${s.city} ${s.type} ${s.memo||''} ${s.address||''}`.toLowerCase().includes(q))));spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot ${s.recommended?'recoCard':''}"><div class="spotIcon">${s.type==='動物病院'?'🏥':s.type==='トリミング'?'✂️':s.type==='ドッグラン'?'🐕':s.type==='宿泊'?'🏨':s.type==='ペット用品'?'🛍️':'📍'}</div><div style="flex:1">${s.sponsored?'<span class="prBadge">PR</span>':''}${s.recommended?'<span class="recoBadge">⭐ おすすめ</span>':''}${isCouponActive(s)?'<span class="couponBadge">🎟️ クーポンあり</span>':''}<strong>${esc(s.name)}</strong><div class="muted">${esc(s.area)}・${esc(s.city||'市町未登録')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s.memo?`<div class="tag">${esc(s.memo)}</div>`:''}${isAdmin&&s.updated_at?`<div class="tag">🕒 最終更新 ${new Date(s.updated_at).toLocaleString('ja-JP')}</div>`:''}<div class="spotActions"><button onclick="toggleFav('${s.id}')">${s.fav?'★ お気に入り':'☆ お気に入り'}</button>${isCouponActive(s)?`<button class="couponBtn" onclick="openCoupon('${s.id}')">🎟️ クーポン</button>`:''}${s.url?`<button class="officialHp" onclick="window.open('${safeUrl(s.url)}','_blank','noopener')">🌐 公式HP</button>`:(isAdmin?`<button class="registerHp" onclick="editSpot('${s.id}')">🌐 HP登録</button>`:'')}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">☎️ 電話</button>`:''}<button onclick="focusSpot('${s.id}')">🧭 経路</button>${isAdmin?`<button class="recoAdmin" onclick="toggleRecommended('${s.id}')">${s.recommended?'⭐ おすすめ解除':'☆ おすすめ指定'}</button><button class="editFacility" onclick="editSpot('${s.id}')">✏️ 編集</button><button class="deleteFacility" onclick="deleteSpot('${s.id}')">🗑️ 削除</button>`:''}</div></div></div>`).join(''):'<div class="empty">条件に合うスポットがありません</div>';favCount.textContent=db.spots.filter(s=>s.fav).length;renderFeatured()}
 async function toggleRecommended(id){if(!isAdmin){alert('管理者ログインが必要です');return}let s=db.spots.find(x=>String(x.id)===String(id));if(!s)return;let next=!s.recommended;let{error}=await sb.from('facilities').update({recommended:next}).eq('id',s.id);if(error){alert('おすすめ設定を変更できませんでした');return}s.recommended=next;renderSpots()}
 function currentSafety(){
   let p=activePet();
