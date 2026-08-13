@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#15342d" />
+<link rel="manifest" href="manifest.webmanifest" />
+<title>しずペット | 静岡県ペットスーパーアプリ</title>
+<style>
+:root{--bg:#f6f1e8;--card:rgba(255,255,255,.82);--card2:rgba(255,251,245,.92);--text:#221d17;--muted:#7a7066;--pri:#15342d;--pri2:#3f5e56;--gold:#b89a5d;--gold2:#d9c08b;--soft:#efe2c7;--line:rgba(75,58,34,.12);--warn:#b88c3f;--danger:#9f3a33;--shadow:0 18px 40px rgba(34,29,23,.10);--glow:0 10px 28px rgba(184,154,93,.18)}
+*{box-sizing:border-box}html{background:var(--bg)}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at top,#fff8ee 0,#f6f1e8 42%,#efe8db 100%);color:var(--text);letter-spacing:.01em}button,input,select,textarea{font:inherit}.app{max-width:760px;margin:auto;min-height:100vh;padding-bottom:110px}.hero{position:relative;overflow:hidden;background:linear-gradient(140deg,#10231f 0%,#17352d 55%,#6d5b39 100%);color:#fff7ea;padding:calc(22px + env(safe-area-inset-top)) 20px 24px;border-radius:0 0 34px 34px;box-shadow:0 24px 50px rgba(16,35,31,.24)}.hero:before{content:"";position:absolute;inset:auto -20% -30% auto;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(217,192,139,.22),transparent 65%)}.hero h1{margin:6px 0 6px;font-size:30px;font-weight:800;letter-spacing:.04em;font-family:Georgia,"Hiragino Mincho ProN","Yu Mincho",serif}.hero p{margin:0;opacity:.88;color:#f6ead3}.heroRow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;position:relative;z-index:1}.badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(217,192,139,.28),rgba(184,154,93,.15));backdrop-filter:blur(6px);color:#fff3d5;border:1px solid rgba(255,236,195,.25);padding:8px 12px;border-radius:999px;font-size:12px;white-space:nowrap;box-shadow:var(--glow)}.section{padding:18px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid rgba(255,255,255,.55);border-radius:22px;padding:16px;box-shadow:var(--shadow);backdrop-filter:blur(10px)}.card h3{margin:4px 0 6px}.muted{color:var(--muted);font-size:13px;line-height:1.5}.kpi{font-size:28px;font-weight:800;font-family:Georgia,"Times New Roman",serif;color:var(--pri)}.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;position:relative;z-index:1}.quick button{border:1px solid rgba(255,247,230,.18);background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.06));color:#fff7ea;border-radius:18px;padding:13px 6px;backdrop-filter:blur(8px);box-shadow:0 12px 24px rgba(9,20,17,.20)}.quick .ico{display:block;font-size:24px;margin-bottom:5px}.quick small{font-size:11px;letter-spacing:.02em}.titleRow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.titleRow h2{font-size:20px;margin:0;font-family:Georgia,"Hiragino Mincho ProN","Yu Mincho",serif;letter-spacing:.03em}.btn{border:0;border-radius:14px;background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff9f0;padding:10px 14px;font-weight:700;box-shadow:0 12px 20px rgba(21,52,45,.18)}.btn.secondary{background:linear-gradient(180deg,#f4ead7,#ebdcc0);color:#5c4927;box-shadow:var(--glow)}.btn.ghost{background:rgba(255,255,255,.72);color:var(--pri);border:1px solid rgba(184,154,93,.28)}.btn.danger{background:linear-gradient(180deg,#f6d5d1,#efc0ba);color:#7e231c}.pet{display:flex;align-items:center;gap:12px}.avatar{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#f6ecd6,#e9d5aa);font-size:30px;box-shadow:var(--glow)}.pill{display:inline-block;background:linear-gradient(180deg,#fbf3e3,#f4e7cc);color:#6e5529;border:1px solid rgba(184,154,93,.18);border-radius:999px;padding:6px 9px;font-size:12px;margin:2px 4px 2px 0}.list{display:grid;gap:10px}.row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.row strong{display:block}.nav{position:fixed;z-index:30;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));width:min(740px,calc(100% - 18px));background:rgba(255,251,245,.88);backdrop-filter:blur(14px);display:grid;grid-template-columns:repeat(5,1fr);border:1px solid rgba(184,154,93,.18);border-radius:24px;box-shadow:0 16px 36px rgba(34,29,23,.14);padding:10px 6px}.nav button{border:0;background:none;color:var(--muted);font-size:11px}.nav button b{display:block;font-size:21px;margin-bottom:2px}.nav button.active{color:var(--pri);font-weight:800}.view{display:none}.view.active{display:block}.search{width:100%;border:1px solid rgba(184,154,93,.16);border-radius:16px;padding:13px 14px;background:rgba(255,251,245,.92);box-shadow:var(--glow)}.filters{display:flex;gap:8px;overflow:auto;padding:10px 0}.filters button{border:1px solid rgba(184,154,93,.18);background:rgba(255,251,245,.92);border-radius:999px;padding:8px 11px;white-space:nowrap;color:#5f564b}.filters button.active{background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff8ed;border-color:transparent}.spot{display:flex;gap:12px}.spotIcon{width:50px;height:50px;border-radius:16px;background:linear-gradient(145deg,#f6ecd6,#e9d5aa);display:grid;place-items:center;font-size:23px;flex:none;box-shadow:var(--glow)}.spotActions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.spotActions button{border:1px solid rgba(184,154,93,.16);background:rgba(255,251,245,.88);border-radius:11px;padding:7px 9px;color:#58482a}.notice{border-left:4px solid var(--warn);background:linear-gradient(180deg,#fff8ec,#f8efdd);padding:13px;border-radius:16px;margin-bottom:10px;box-shadow:var(--glow)}.dangerBox{border-left:4px solid var(--danger);background:linear-gradient(180deg,#fff5f4,#f8e0dc);padding:13px;border-radius:16px;box-shadow:0 12px 22px rgba(159,58,51,.08)}.form{display:grid;gap:10px}.form input,.form select,.form textarea{width:100%;border:1px solid rgba(184,154,93,.18);border-radius:14px;padding:12px;background:rgba(255,251,245,.94);color:var(--text)}.modal{display:none;position:fixed;z-index:100;inset:0;background:rgba(18,20,24,.42);padding:20px;align-items:flex-end;justify-content:center}.modal.open{display:flex}.sheet{width:min(720px,100%);max-height:88vh;overflow:auto;background:linear-gradient(180deg,#fffdf9,#f7f0e4);border:1px solid rgba(184,154,93,.14);border-radius:28px 28px 18px 18px;padding:18px;box-shadow:0 28px 60px rgba(34,29,23,.18)}.sheetHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.sheetHead h2{font-family:Georgia,"Hiragino Mincho ProN","Yu Mincho",serif}.sheetHead button{border:0;background:#f2e8d5;color:#6e5529;border-radius:50%;width:34px;height:34px;box-shadow:var(--glow)}.tag{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5}.empty{padding:28px;text-align:center;color:var(--muted)}.fab{position:fixed;right:max(18px,calc((100vw - 760px)/2 + 18px));bottom:94px;border:0;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#c7ab6f,#a78847);color:#fffdf7;font-size:28px;box-shadow:0 18px 34px rgba(167,136,71,.32)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hero">
+    <div class="heroRow"><div><div class="badge">静岡県 特化 ・ Premium Care</div><h1>🐾 しずペット</h1><p>健康・おでかけ・防災を、美しく上質に。</p></div><div id="today"></div></div>
+    <div class="quick">
+      <button onclick="openModal('petModal')"><span class="ico">🐶</span><small>ペット</small></button>
+      <button onclick="go('health')"><span class="ico">💊</span><small>健康</small></button>
+      <button onclick="go('spots')"><span class="ico">📍</span><small>県内検索</small></button>
+      <button onclick="go('safety')"><span class="ico">🧰</span><small>防災</small></button>
+    </div>
+  </header>
+
+  <main id="home" class="view active section">
+    <div class="titleRow"><h2>うちの子</h2><button class="btn secondary" onclick="openModal('petModal')">＋追加</button></div>
+    <div id="petCard" class="card"></div>
+    <div style="height:14px"></div>
+    <div class="grid">
+      <div class="card"><div class="muted">次の予定</div><div id="nextPlan" class="kpi">未登録</div><div class="muted">ワクチン・薬・通院</div></div>
+      <div class="card"><div class="muted">お気に入り</div><div id="favCount" class="kpi">0</div><div class="muted">静岡県内スポット</div></div>
+    </div>
+    <div style="height:14px"></div>
+    <div class="card">
+      <div class="titleRow"><h2>今日のチェック</h2><button class="btn secondary" onclick="openModal('healthModal')">記録</button></div>
+      <div id="todayChecks" class="list"></div>
+    </div>
+    <div style="height:14px"></div>
+    <div class="notice"><strong>🌊 静岡なら防災も重要</strong><br><span class="muted">避難時のフード・水・薬・リード・証明書を、ペットごとに確認できます。</span></div>
+  </main>
+
+  <main id="health" class="view section">
+    <div class="titleRow"><h2>💚 健康管理</h2><button class="btn" onclick="openModal('healthModal')">＋記録</button></div>
+    <div class="grid">
+      <div class="card"><div class="muted">体重</div><div id="weightKpi" class="kpi">-- kg</div></div>
+      <div class="card"><div class="muted">健康記録</div><div id="healthCount" class="kpi">0件</div></div>
+    </div>
+    <div style="height:14px"></div>
+    <div class="card"><h3>予定・記録</h3><div id="healthList" class="list"></div></div>
+  </main>
+
+  <main id="spots" class="view section">
+    <div class="titleRow"><h2>📍 静岡県内スポット</h2><button class="btn secondary" onclick="openModal('spotModal')">＋登録</button></div>
+    <input id="spotSearch" class="search" placeholder="店名・市町・カテゴリで検索" oninput="renderSpots()" />
+    <div class="filters" id="areaFilters"></div>
+    <div class="filters" id="typeFilters"></div>
+    <div id="spotList" class="list"></div>
+  </main>
+
+  <main id="safety" class="view section">
+    <div class="titleRow"><h2>🧰 静岡ペット防災</h2><button class="btn secondary" onclick="resetSafety()">リセット</button></div>
+    <div class="dangerBox"><strong>地震・津波・台風に備える</strong><br><span class="muted">災害時は自治体の最新情報・避難所ルールを必ず確認してください。このアプリのチェックリストは補助用です。</span></div>
+    <div style="height:12px"></div>
+    <div class="card"><h3>同行避難バッグ</h3><div id="safetyList" class="list"></div></div>
+    <div style="height:12px"></div>
+    <div class="card"><h3>迷子対策</h3><div class="row"><div><strong>写真を最新に</strong><span class="muted">全身・顔・特徴が分かる写真</span></div><span>📸</span></div><div class="row"><div><strong>連絡先メモ</strong><span class="muted">飼い主・かかりつけ・緊急連絡先</span></div><span>☎️</span></div><div class="row"><div><strong>鑑札・迷子札</strong><span class="muted">装着状況を定期確認</span></div><span>🏷️</span></div></div>
+  </main>
+
+  <main id="more" class="view section">
+    <h2>⚙️ その他</h2>
+    <div class="card list">
+      <div class="row" onclick="exportData()"><div><strong>バックアップ</strong><span class="muted">データをJSONで保存</span></div><span>›</span></div>
+      <label class="row"><div><strong>バックアップを復元</strong><span class="muted">JSONを読み込み</span></div><span>📥</span><input type="file" accept="application/json" hidden onchange="importData(event)"></label>
+      <div class="row" onclick="openModal('spotModal')"><div><strong>店舗・施設を追加</strong><span class="muted">静岡県内のマスタを自分で増やせます</span></div><span>›</span></div>
+      <div class="row"><div><strong>データ保存方式</strong><span class="muted">この版は端末内保存（無料）</span></div><span>📱</span></div>
+    </div>
+    <p class="muted">※ 店舗・病院などの初期データはサンプルです。実在情報の最新性は保証しません。正式運用では店舗マスタの精査・更新機能を追加できます。</p>
+  </main>
+</div>
+
+<nav class="nav">
+  <button class="active" data-go="home" onclick="go('home')"><b>🏠</b>ホーム</button>
+  <button data-go="health" onclick="go('health')"><b>💚</b>健康</button>
+  <button data-go="spots" onclick="go('spots')"><b>📍</b>探す</button>
+  <button data-go="safety" onclick="go('safety')"><b>🧰</b>防災</button>
+  <button data-go="more" onclick="go('more')"><b>⚙️</b>その他</button>
+</nav>
+<button class="fab" onclick="openModal('spotModal')">＋</button>
+
+<div id="petModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>ペット登録</h2><button onclick="closeModal('petModal')">✕</button></div><form class="form" onsubmit="savePet(event)"><input id="petName" required placeholder="名前"><select id="petType"><option>犬</option><option>猫</option><option>その他</option></select><input id="petBreed" placeholder="犬種・猫種など"><input id="petBirth" type="date"><input id="petWeight" type="number" step="0.1" placeholder="体重 kg"><textarea id="petMemo" placeholder="アレルギー・持病・かかりつけ等"></textarea><button class="btn">保存</button></form></div></div>
+<div id="healthModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>健康記録</h2><button onclick="closeModal('healthModal')">✕</button></div><form class="form" onsubmit="saveHealth(event)"><select id="healthType"><option>体重</option><option>投薬</option><option>ワクチン</option><option>通院</option><option>食事</option><option>体調メモ</option></select><input id="healthDate" type="date" required><input id="healthValue" placeholder="例：5.2kg / フィラリア薬 / 狂犬病ワクチン"><textarea id="healthMemo" placeholder="メモ"></textarea><button class="btn">保存</button></form></div></div>
+<div id="spotModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>県内スポット追加</h2><button onclick="closeModal('spotModal')">✕</button></div><form class="form" onsubmit="saveSpot(event)"><input id="spotName" required placeholder="店・施設名"><select id="spotArea"><option>東部</option><option>中部</option><option>西部</option><option>伊豆</option></select><input id="spotCity" placeholder="市町 例：静岡市"><select id="spotType"><option>動物病院</option><option>トリミング</option><option>ペット用品</option><option>ドッグラン</option><option>ペット同伴</option><option>宿泊</option><option>その他</option></select><input id="spotUrl" type="url" placeholder="ホームページ URL"><input id="spotPhone" type="tel" placeholder="電話番号"><textarea id="spotMemo" placeholder="メモ・特徴"></textarea><button class="btn">追加</button></form></div></div>
+
+<script>
+const K='shizupet-v1';
+const sampleSpots=[
+ {id:'s1',name:'サンプル動物病院（静岡市）',area:'中部',city:'静岡市',type:'動物病院',memo:'サンプルデータ',fav:false},
+ {id:'s2',name:'サンプル ドッグラン（沼津）',area:'東部',city:'沼津市',type:'ドッグラン',memo:'サンプルデータ',fav:false},
+ {id:'s3',name:'サンプル ペット同伴カフェ（浜松）',area:'西部',city:'浜松市',type:'ペット同伴',memo:'サンプルデータ',fav:false},
+ {id:'s4',name:'サンプル ペット宿（伊豆）',area:'伊豆',city:'伊豆市',type:'宿泊',memo:'サンプルデータ',fav:false},
+];
+let db=JSON.parse(localStorage.getItem(K)||'null')||{pets:[],health:[],spots:sampleSpots,safety:{}};
+let area='すべて',type='すべて';
+const safetyItems=['フード（最低3日分を目安）','飲み水','常用薬・予防薬','リード・ハーネス','キャリー・ケージ','ペットシーツ・排泄用品','ワクチン等の証明書コピー','飼い主と一緒に写った写真','迷子札・鑑札','タオル・防寒用品'];
+function persist(){localStorage.setItem(K,JSON.stringify(db));renderAll()}
+function go(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.go===id));window.scrollTo({top:0,behavior:'smooth'})}
+function openModal(id){document.getElementById(id).classList.add('open');if(id==='healthModal')document.getElementById('healthDate').valueAsDate=new Date()}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function savePet(e){e.preventDefault();db.pets.unshift({id:Date.now(),name:petName.value,type:petType.value,breed:petBreed.value,birth:petBirth.value,weight:petWeight.value,memo:petMemo.value});e.target.reset();closeModal('petModal');persist()}
+function saveHealth(e){e.preventDefault();db.health.unshift({id:Date.now(),type:healthType.value,date:healthDate.value,value:healthValue.value,memo:healthMemo.value});e.target.reset();closeModal('healthModal');persist()}
+function saveSpot(e){e.preventDefault();db.spots.unshift({id:Date.now(),name:spotName.value,area:spotArea.value,city:spotCity.value,type:spotType.value,url:spotUrl.value,phone:spotPhone.value,memo:spotMemo.value,fav:false});e.target.reset();closeModal('spotModal');persist()}
+function toggleFav(id){let s=db.spots.find(x=>String(x.id)===String(id));if(s)s.fav=!s.fav;persist()}
+function deleteSpot(id){if(confirm('このスポットを削除しますか？')){db.spots=db.spots.filter(x=>String(x.id)!==String(id));persist()}}
+function renderPets(){let el=document.getElementById('petCard');if(!db.pets.length){el.innerHTML='<div class="empty">🐾 まだペットが登録されていません<br><button class="btn" style="margin-top:12px" onclick="openModal(\'petModal\')">最初の1匹を登録</button></div>';return}let p=db.pets[0];el.innerHTML=`<div class="pet"><div class="avatar">${p.type==='猫'?'🐱':p.type==='犬'?'🐶':'🐾'}</div><div><h3>${esc(p.name)}</h3><div class="muted">${esc(p.breed||p.type)} ${p.weight?`・${esc(p.weight)}kg`:''}</div><div style="margin-top:5px">${p.memo?`<span class="pill">📝 ${esc(p.memo)}</span>`:''}</div></div></div>`}
+function renderHealth(){healthCount.textContent=db.health.length+'件';let w=db.health.find(x=>x.type==='体重');weightKpi.textContent=w?String(w.value).replace(/kg/i,'')+' kg':(db.pets[0]?.weight?db.pets[0].weight+' kg':'-- kg');healthList.innerHTML=db.health.length?db.health.map(h=>`<div class="row"><div><strong>${esc(h.type)} ・ ${esc(h.value||'記録')}</strong><span class="muted">${esc(h.date)} ${h.memo?'・'+esc(h.memo):''}</span></div><button class="btn secondary" onclick="deleteHealth(${h.id})">削除</button></div>`).join(''):'<div class="empty">健康記録はまだありません</div>';todayChecks.innerHTML=db.health.slice(0,3).map(h=>`<div class="row"><div><strong>${esc(h.type)}</strong><span class="muted">${esc(h.value||'')} ${esc(h.date)}</span></div><span>✓</span></div>`).join('')||'<div class="empty">「記録」から今日の状態を残せます</div>';let future=db.health.filter(h=>h.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date))[0];nextPlan.textContent=future?future.date.slice(5).replace('-','/'): '未登録'}
+function deleteHealth(id){db.health=db.health.filter(x=>x.id!==id);persist()}
+function setupFilters(){let areas=['すべて','東部','中部','西部','伊豆'];areaFilters.innerHTML=areas.map(a=>`<button class="${area===a?'active':''}" onclick="area='${a}';setupFilters();renderSpots()">${a}</button>`).join('');let types=['すべて','動物病院','トリミング','ペット用品','ドッグラン','ペット同伴','宿泊','その他'];typeFilters.innerHTML=types.map(t=>`<button class="${type===t?'active':''}" onclick="type='${t}';setupFilters();renderSpots()">${t}</button>`).join('')}
+function renderSpots(){let q=(spotSearch?.value||'').toLowerCase();let xs=db.spots.filter(s=>(area==='すべて'||s.area===area)&&(type==='すべて'||s.type===type)&&(`${s.name} ${s.city} ${s.type} ${s.memo||''}`.toLowerCase().includes(q)));spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot"><div class="spotIcon">${s.type==='動物病院'?'🏥':s.type==='トリミング'?'✂️':s.type==='ドッグラン'?'🐕':s.type==='宿泊'?'🏨':'📍'}</div><div style="flex:1"><strong>${esc(s.name)}</strong><div class="muted">${esc(s.area)}・${esc(s.city||'市町未登録')} ｜ ${esc(s.type)}</div>${s.memo?`<div class="tag">${esc(s.memo)}</div>`:''}<div class="spotActions"><button onclick="toggleFav('${s.id}')">${s.fav?'★ お気に入り':'☆ お気に入り'}</button>${s.url?`<button onclick="location.href='${safeUrl(s.url)}'">HP</button>`:''}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">電話</button>`:''}<button onclick="deleteSpot('${s.id}')">削除</button></div></div></div>`).join(''):'<div class="empty">条件に合うスポットがありません</div>';favCount.textContent=db.spots.filter(s=>s.fav).length}
+function renderSafety(){safetyList.innerHTML=safetyItems.map((x,i)=>`<label class="row"><div><strong>${x}</strong></div><input type="checkbox" ${db.safety[i]?'checked':''} onchange="db.safety[${i}]=this.checked;persist()"></label>`).join('')}
+function resetSafety(){db.safety={};persist()}
+function exportData(){let blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='shizupet-backup.json';a.click();URL.revokeObjectURL(a.href)}
+function importData(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{db=JSON.parse(r.result);persist();alert('復元しました')}catch{alert('読み込みに失敗しました')}};r.readAsText(f)}
+function safeUrl(u){try{let x=new URL(u);return ['http:','https:'].includes(x.protocol)?x.href:'#'}catch{return '#'}}
+function esc(v=''){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function renderAll(){renderPets();renderHealth();setupFilters();renderSpots();renderSafety()}
+document.getElementById('today').innerHTML=`<div class="badge">${new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',weekday:'short'}).format(new Date())}</div>`;
+renderAll();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body>
+</html>
