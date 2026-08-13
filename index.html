@@ -10,8 +10,17 @@
 .recommendedFilter.active{background:#8a6a20!important;color:white!important;border-color:#8a6a20!important}
 .recoBadge{display:inline-flex;align-items:center;background:#fff7dc;color:#735414;border:1px solid #dfc16f;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:800;margin:0 0 7px}
 .recoCard{border:1px solid rgba(184,154,93,.5)!important;box-shadow:0 18px 38px rgba(184,154,93,.16)!important}
+
+.searchRow{display:grid;grid-template-columns:minmax(0,1fr) 52px 52px;gap:8px;align-items:center}
+.snsBtn{width:52px;height:52px;border:1px solid var(--line);border-radius:15px;background:white;font-weight:900;font-size:20px;display:grid;place-items:center;box-shadow:0 8px 18px rgba(40,30,20,.06)}
+.snsBtn.fb{color:#1877F2}
+.snsBtn.x{color:#111}
 </style></head><body><div class="app"><header class="hero"><h1>🐾 しずペットマップ</h1><p>静岡県のペット関連施設を、現在地からすぐ探せます。</p></header><section class="section"><div class="mapCard"><div class="mapHead"><h2>🗺️ 近くのペット施設</h2><button class="btn secondary" onclick="locateMe(false)">◎ 現在地</button></div><div id="map"></div></div><div style="height:14px"></div><button id="addFacilityBtn" class="btn adminAdd" style="margin-bottom:12px" onclick="adminTopAction()">🔐 管理者ログイン</button>
-  <input id="search" class="search" placeholder="施設名・市町・カテゴリで検索" oninput="renderSpots()"><button id="recommendedFilterBtn" class="recommendedFilter" type="button" onclick="toggleRecommendedFilter()">⭐ おすすめ店舗だけ表示</button>
+  <div class="searchRow">
+  <input id="search" class="search" placeholder="施設名・市町・カテゴリで検索" oninput="renderSpots()">
+  <button type="button" class="snsBtn fb" onclick="openFacebookSearch()" aria-label="Facebookで検索">f</button>
+  <button type="button" class="snsBtn x" onclick="openXSearch()" aria-label="Xで検索">𝕏</button>
+</div><button id="recommendedFilterBtn" class="recommendedFilter" type="button" onclick="toggleRecommendedFilter()">⭐ おすすめ店舗だけ表示</button>
   <div id="typeFilters" class="filters"></div><div id="count" class="count"></div><div id="spotList" class="list"></div><div class="adminBox"><div class="adminRow"><div><strong id="adminStatus">管理者：未ログイン</strong><div class="muted">施設情報の追加・編集・削除は管理者のみ</div></div><button id="adminBtn" class="btn secondary" onclick="openAdmin()">ログイン</button></div></div></section></div>
 <div id="adminModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>管理者ログイン</h2><button onclick="closeModal('adminModal')">✕</button></div><form class="form" onsubmit="adminLogin(event)"><input id="adminEmail" type="email" placeholder="メールアドレス" required><input id="adminPassword" type="password" placeholder="パスワード" required><button class="btn">ログイン</button></form></div></div>
 <div id="facilityModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>施設情報を編集</h2><button onclick="closeModal('facilityModal')">✕</button></div><form class="form" onsubmit="saveFacility(event)"><input id="facilityId" type="hidden"><input id="facilityName" placeholder="施設名" required><select id="facilityArea"><option>東部</option><option>中部</option><option>西部</option><option>伊豆</option></select><input id="facilityCity" placeholder="市町"><input id="facilityAddress" placeholder="住所"><select id="facilityType"><option>動物病院</option><option>トリミング</option><option>ペット用品</option><option>ドッグラン</option><option>ペット同伴</option><option>宿泊</option><option>その他</option></select><input id="facilityUrl" type="url" placeholder="公式ホームページURL"><input id="facilityPhone" type="tel" placeholder="電話番号"><input id="facilityLat" type="number" step="any" placeholder="緯度"><input id="facilityLng" type="number" step="any" placeholder="経度"><label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
@@ -34,6 +43,22 @@ function distanceKm(a,b){if(!a||!b)return null;let R=6371,toRad=x=>x*Math.PI/180
       : '⭐ おすすめ店舗だけ表示';
   }
   renderSpots();
+}
+
+
+function socialSearchQuery(){
+  const q=(document.getElementById('search')?.value||'').trim();
+  return ['静岡','ペット',q].filter(Boolean).join(' ');
+}
+
+function openFacebookSearch(){
+  const q=encodeURIComponent(socialSearchQuery());
+  window.open(`https://www.facebook.com/search/top?q=${q}`,'_blank','noopener');
+}
+
+function openXSearch(){
+  const q=encodeURIComponent(socialSearchQuery());
+  window.open(`https://x.com/search?q=${q}&src=typed_query&f=live`,'_blank','noopener');
 }
 
 function filtered(){
