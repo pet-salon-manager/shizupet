@@ -1,4 +1,4 @@
-const CACHE='shizupet-facility-update-v11';
+const CACHE='shizupet-facility-upsert-v12';
 const CORE=['./','./index.html','./manifest.webmanifest'];
 
 self.addEventListener('install',event=>{
