@@ -1,9 +1,9 @@
 {
-  "name":"しずペット - 静岡県ペットスーパーアプリ",
-  "short_name":"しずペット",
-  "start_url":"./",
-  "display":"standalone",
-  "background_color":"#f6f1e8",
-  "theme_color":"#15342d",
-  "icons":[]
+  "name": "しずペット - 静岡県ペットスーパーアプリ",
+  "short_name": "しずペット",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f1e8",
+  "theme_color": "#15342d",
+  "icons": []
 }
