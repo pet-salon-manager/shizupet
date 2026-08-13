@@ -177,32 +177,88 @@ function renderSpots(){
 async function loadFacilities(){
   count.textContent='読み込み中…';
 
-  // まず施設テーブルを全件取得。
-  // 削除済み(is_active=false)だけアプリ側で除外する。
-  let {data,error}=await sb
-    .from('facilities')
-    .select('*')
-    .order('name');
+  let rows=null;
+  let lastError=null;
 
-  if(error){
-    console.error('施設読み込みエラー',error);
+  // 1) REST APIを直接呼ぶ。SDKの待ち状態に影響されにくい。
+  try{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),10000);
+    const sessionResult=await Promise.race([
+      sb.auth.getSession(),
+      new Promise(resolve=>setTimeout(()=>resolve({data:{session:null}}),1800))
+    ]);
+    const token=sessionResult?.data?.session?.access_token || SUPABASE_KEY;
+
+    const url=SUPABASE_URL + '/rest/v1/facilities?select=*&order=name.asc';
+    const res=await fetch(url,{
+      signal:controller.signal,
+      cache:'no-store',
+      headers:{
+        'apikey':SUPABASE_KEY,
+        'Authorization':'Bearer '+token,
+        'Accept':'application/json'
+      }
+    });
+    clearTimeout(timer);
+
+    if(!res.ok){
+      const body=await res.text();
+      throw new Error(`REST ${res.status}: ${body.slice(0,180)}`);
+    }
+    rows=await res.json();
+  }catch(err){
+    console.warn('REST施設読込失敗。SDKへ切替',err);
+    lastError=err;
+  }
+
+  // 2) RESTが失敗した場合だけSupabase SDKで再試行（8秒で打切り）。
+  if(!rows){
+    try{
+      const sdkRequest=sb.from('facilities').select('*').order('name');
+      const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('Supabase読み込みがタイムアウトしました')),8000));
+      const result=await Promise.race([sdkRequest,timeout]);
+      if(result.error)throw result.error;
+      rows=result.data||[];
+    }catch(err){
+      console.error('施設読み込みエラー',err);
+      lastError=err;
+    }
+  }
+
+  if(!rows){
     count.textContent='0件';
-    spotList.innerHTML=`<div class="card empty">施設情報を読み込めませんでした<br><small>${esc(error.message||'Supabase接続を確認してください')}</small></div>`;
+    spotList.innerHTML=`<div class="card empty">
+      施設情報を読み込めませんでした<br>
+      <small>${esc(lastError?.message||'Supabase接続を確認してください')}</small><br><br>
+      <button class="btn secondary" onclick="loadFacilities()">再読み込み</button>
+    </div>`;
     if(layer)layer.clearLayers();
     return;
   }
 
-  spots=(data||[]).filter(s=>s.is_active!==false);
+  // 削除済みだけ除外。null/未設定は表示。
+  spots=rows.filter(s=>s.is_active!==false);
 
-  // フィルター状態で全部隠れないよう初回同期時は全表示へ戻す
   if(!spots.length){
     count.textContent='0件';
-    spotList.innerHTML='<div class="card empty">Supabaseに表示可能な施設がありません</div>';
+    spotList.innerHTML='<div class="card empty">表示可能な施設が0件です。Supabaseのfacilitiesテーブルを確認してください。</div>';
     if(layer)layer.clearLayers();
     return;
   }
 
+  // 読込成功時はフィルターを変えず表示。
   renderSpots();
+
+  // 現在地が未取得なら静岡県全域を見やすく表示。
+  if(map && !currentPos){
+    const pts=spots.map(getPos).filter(Boolean);
+    if(pts.length){
+      try{map.fitBounds(pts,{padding:[24,24],maxZoom:10})}catch{}
+    }else{
+      map.setView([34.98,138.38],8);
+    }
+  }
 }
 function routeTo(id){
   let s=spots.find(x=>String(x.id)===String(id));if(!s)return;
@@ -351,5 +407,33 @@ function editFacility(id){
   alert(editing?'施設情報を更新しました':'新しい施設を追加しました');
 }
 async function deleteFacility(id){if(!isAdmin)return;let s=spots.find(x=>String(x.id)===String(id));if(!s||!confirm(`「${s.name}」を削除しますか？`))return;let {error}=await sb.from('facilities').update({is_active:false}).eq('id',id);if(error)return alert('削除できませんでした');await loadFacilities()}
-async function init(){setupFilters();initMap();let {data}=await sb.auth.getSession();if(data.session){let {data:ok}=await sb.rpc('is_app_admin');isAdmin=!!ok}refreshAdmin();await loadFacilities();locateMe(true)}init();
+async function init(){
+  setupFilters();
+  initMap();
+  refreshAdmin();
+
+  // 施設表示を最優先
+  loadFacilities();
+
+  // 管理者状態は後から確認。失敗しても施設表示を止めない。
+  try{
+    const sessionResult=await Promise.race([
+      sb.auth.getSession(),
+      new Promise(resolve=>setTimeout(()=>resolve({data:{session:null}}),2000))
+    ]);
+    if(sessionResult?.data?.session){
+      const adminResult=await Promise.race([
+        sb.rpc('is_app_admin'),
+        new Promise(resolve=>setTimeout(()=>resolve({data:false}),2500))
+      ]);
+      isAdmin=!!adminResult?.data;
+      refreshAdmin();
+      renderSpots();
+    }
+  }catch(e){
+    console.warn('管理者状態確認をスキップ',e);
+  }
+
+  locateMe(true);
+}init();
 </script></body></html>
