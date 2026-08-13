@@ -8,7 +8,7 @@
 </style></head><body><div class="app"><header class="hero"><h1>🐾 しずペットマップ</h1><p>静岡県のペット関連施設を、現在地からすぐ探せます。</p></header><section class="section"><div class="mapCard"><div class="mapHead"><h2>🗺️ 近くのペット施設</h2><button class="btn secondary" onclick="locateMe(false)">◎ 現在地</button></div><div id="map"></div></div><div style="height:14px"></div><button id="addFacilityBtn" class="btn adminAdd" style="margin-bottom:12px" onclick="adminTopAction()">🔐 管理者ログイン</button>
   <input id="search" class="search" placeholder="施設名・市町・カテゴリで検索" oninput="renderSpots()"><div id="typeFilters" class="filters"></div><div id="count" class="count"></div><div id="spotList" class="list"></div><div class="adminBox"><div class="adminRow"><div><strong id="adminStatus">管理者：未ログイン</strong><div class="muted">施設情報の追加・編集・削除は管理者のみ</div></div><button id="adminBtn" class="btn secondary" onclick="openAdmin()">ログイン</button></div></div></section></div>
 <div id="adminModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>管理者ログイン</h2><button onclick="closeModal('adminModal')">✕</button></div><form class="form" onsubmit="adminLogin(event)"><input id="adminEmail" type="email" placeholder="メールアドレス" required><input id="adminPassword" type="password" placeholder="パスワード" required><button class="btn">ログイン</button></form></div></div>
-<div id="facilityModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>施設情報を編集</h2><button onclick="closeModal('facilityModal')">✕</button></div><form class="form" onsubmit="saveFacility(event)"><input id="facilityId" type="hidden"><input id="facilityName" placeholder="施設名" required><select id="facilityArea"><option>東部</option><option>中部</option><option>西部</option><option>伊豆</option></select><input id="facilityCity" placeholder="市町"><input id="facilityAddress" placeholder="住所"><select id="facilityType"><option>動物病院</option><option>トリミング</option><option>ペット用品</option><option>ドッグラン</option><option>ペット同伴</option><option>宿泊</option><option>その他</option></select><input id="facilityUrl" type="url" placeholder="公式ホームページURL"><input id="facilityPhone" type="tel" placeholder="電話番号"><input id="facilityLat" type="number" step="any" placeholder="緯度"><input id="facilityLng" type="number" step="any" placeholder="経度"><label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
+<div id="facilityModal" class="modal"><div class="sheet"><div class="sheetHead"><h2 id="facilityTitle">施設情報を編集</h2><button onclick="closeModal('facilityModal')">✕</button></div><form class="form" onsubmit="saveFacility(event)"><input id="facilityId" type="hidden"><input id="facilityName" placeholder="施設名" required><select id="facilityArea"><option>東部</option><option>中部</option><option>西部</option><option>伊豆</option></select><input id="facilityCity" placeholder="市町"><input id="facilityAddress" placeholder="住所"><select id="facilityType"><option>動物病院</option><option>トリミング</option><option>ペット用品</option><option>ドッグラン</option><option>ペット同伴</option><option>宿泊</option><option>その他</option></select><input id="facilityUrl" type="url" placeholder="公式ホームページURL"><input id="facilityPhone" type="tel" placeholder="電話番号"><input id="facilityLat" type="number" step="any" placeholder="緯度"><input id="facilityLng" type="number" step="any" placeholder="経度"><label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
       <input id="facilityRecommended" type="checkbox" style="width:22px;height:22px">
       <span>⭐ おすすめのお店に設定する</span>
     </label>
@@ -32,7 +32,7 @@ async function openAdmin(){if(isAdmin){if(confirm('ログアウトしますか�
   addFacilityBtn.classList.toggle('secondary',!isAdmin);
 }
 function newFacility(){
-  if(!isAdmin)return;
+  if(!isAdmin){openAdmin();return}
   facilityTitle.textContent='新しい施設を追加';
   facilityId.value='';
   facilityName.value='';
@@ -56,6 +56,60 @@ async function toggleRecommended(id){
   await loadFacilities()
 }
 
-function editFacility(id){let s=spots.find(x=>String(x.id)===String(id));if(!s)return;facilityId.value=s.id;facilityName.value=s.name||'';facilityArea.value=s.area||'東部';facilityCity.value=s.city||'';facilityAddress.value=s.address||'';facilityType.value=s.type||'その他';facilityUrl.value=s.url||'';facilityPhone.value=s.phone||'';facilityLat.value=s.lat??'';facilityLng.value=s.lng??'';openModal('facilityModal')}async function saveFacility(e){e.preventDefault();if(!isAdmin)return;let id=facilityId.value,row={name:facilityName.value.trim(),area:facilityArea.value,city:facilityCity.value.trim(),address:facilityAddress.value.trim()||null,type:facilityType.value,url:facilityUrl.value.trim()||null,phone:facilityPhone.value.trim()||null,lat:facilityLat.value===''?null:Number(facilityLat.value),lng:facilityLng.value===''?null:Number(facilityLng.value),is_active:true};let {error}=await sb.from('facilities').update(row).eq('id',id);if(error)return alert('保存できませんでした');closeModal('facilityModal');await loadFacilities()}async function deleteFacility(id){if(!isAdmin)return;let s=spots.find(x=>String(x.id)===String(id));if(!s||!confirm(`「${s.name}」を削除しますか？`))return;let {error}=await sb.from('facilities').update({is_active:false}).eq('id',id);if(error)return alert('削除できませんでした');await loadFacilities()}
+function editFacility(id){
+  let s=spots.find(x=>String(x.id)===String(id));if(!s)return;
+  facilityTitle.textContent='施設情報を編集';
+  facilityId.value=s.id;
+  facilityName.value=s.name||'';
+  facilityArea.value=s.area||'東部';
+  facilityCity.value=s.city||'';
+  facilityAddress.value=s.address||'';
+  facilityType.value=s.type||'その他';
+  facilityUrl.value=s.url||'';
+  facilityPhone.value=s.phone||'';
+  facilityLat.value=s.lat??'';
+  facilityLng.value=s.lng??'';
+  facilityRecommended.checked=!!s.recommended;
+  openModal('facilityModal')
+}async function saveFacility(e){
+  e.preventDefault();
+  if(!isAdmin){alert('管理者ログインが必要です');return}
+
+  let id=facilityId.value.trim();
+  let row={
+    name:facilityName.value.trim(),
+    area:facilityArea.value,
+    city:facilityCity.value.trim(),
+    address:facilityAddress.value.trim()||null,
+    type:facilityType.value,
+    url:facilityUrl.value.trim()||null,
+    phone:facilityPhone.value.trim()||null,
+    lat:facilityLat.value===''?null:Number(facilityLat.value),
+    lng:facilityLng.value===''?null:Number(facilityLng.value),
+    recommended:facilityRecommended.checked,
+    is_active:true
+  };
+
+  if(!row.name){alert('施設名を入力してください');return}
+
+  let result;
+  if(id){
+    result=await sb.from('facilities').update(row).eq('id',id).select('*').single();
+  }else{
+    id='f-'+(crypto.randomUUID?crypto.randomUUID():Date.now());
+    result=await sb.from('facilities').insert({id,...row}).select('*').single();
+  }
+
+  if(result.error){
+    console.error(result.error);
+    alert('保存できませんでした。Supabaseの権限設定を確認してください。');
+    return
+  }
+
+  closeModal('facilityModal');
+  await loadFacilities();
+  alert(id && facilityId.value ? '施設情報を更新しました' : '新しい施設を追加しました');
+}
+async function deleteFacility(id){if(!isAdmin)return;let s=spots.find(x=>String(x.id)===String(id));if(!s||!confirm(`「${s.name}」を削除しますか？`))return;let {error}=await sb.from('facilities').update({is_active:false}).eq('id',id);if(error)return alert('削除できませんでした');await loadFacilities()}
 async function init(){setupFilters();initMap();let {data}=await sb.auth.getSession();if(data.session){let {data:ok}=await sb.rpc('is_app_admin');isAdmin=!!ok}refreshAdmin();await loadFacilities();locateMe(true)}init();
 </script></body></html>
