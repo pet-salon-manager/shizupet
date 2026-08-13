@@ -1,4 +1,4 @@
-const CACHE='shizupet-facility-visual-refresh-v13';
+const CACHE='shizupet-facility-delete-v14';
 const CORE=['./','./index.html','./manifest.webmanifest'];
 
 self.addEventListener('install',event=>{

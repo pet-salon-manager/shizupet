@@ -216,6 +216,8 @@ function migrate(x){
 
   // 端末に施設データがまったく無い初回だけ初期データを表示。
   // Supabase読み込み後はサーバーの値だけを使用する。
+  // Supabase接続版では、初期スポットは初回の仮表示にのみ使用する。
+  // 一度Supabaseから同期した後は、削除済み施設を初期データから復活させない。
   x.spots=existing.length?existing:[...actualSpots];
   if(!x.activePetId&&x.pets[0]) x.activePetId=x.pets[0].id;
   x.health=x.health.map(h=>({...h,petId:h.petId??x.activePetId??null}));
@@ -363,15 +365,72 @@ async function saveSpot(e){
 
   showSavedFacilitySummary(saved);
 }
-async function deleteSpot(id){if(!isAdmin){openAdminLogin();return}let s=db.spots.find(x=>String(x.id)===String(id));if(!s||!confirm(`${s.name} を施設マスタから削除しますか？`))return;let{error}=await sb.from('facilities').delete().eq('id',id);if(error){console.error(error);alert('削除できませんでした。');return}await loadFacilities()}
-function openAdminLogin(){if(currentAdminUser)adminEmail.value=currentAdminUser.email||'';adminLoginMessage.textContent=isAdmin?'管理者としてログイン中です。施設情報を編集できます。':'ログイン後、管理者登録されているユーザーだけが施設を編集できます。';openModal('adminModal')}
-async function adminLogin(e){e.preventDefault();if(!sb)return;adminLoginMessage.textContent='ログイン中…';let{error}=await sb.auth.signInWithPassword({email:adminEmail.value.trim(),password:adminPassword.value});if(error){adminLoginMessage.textContent='ログインできませんでした：'+error.message;return}adminPassword.value='';await refreshAdminState();if(isAdmin){adminLoginMessage.textContent='管理者ログインしました。';setTimeout(()=>closeModal('adminModal'),500)}else adminLoginMessage.textContent='ログインしましたが、このアカウントには管理者権限がありません。'}
-async function adminSignup(){if(!sb)return;let email=adminEmail.value.trim(),password=adminPassword.value;if(!email||password.length<6){adminLoginMessage.textContent='メールアドレスと6文字以上のパスワードを入力してください。';return}adminLoginMessage.textContent='アカウント作成中…';let{error}=await sb.auth.signUp({email,password});adminLoginMessage.textContent=error?('作成できませんでした：'+error.message):'アカウントを作成しました。メール確認が必要な場合は確認後にログインしてください。管理者権限はSupabase側で付与します。'}
-async function adminLogout(){if(sb)await sb.auth.signOut();isAdmin=false;currentAdminUser=null;refreshAdminUI();closeModal('adminModal')}
-async function refreshAdminState(){if(!sb){refreshAdminUI();return}let{data:{session}}=await sb.auth.getSession();currentAdminUser=session?.user||null;isAdmin=false;if(currentAdminUser){let{data,error}=await sb.rpc('is_app_admin');if(!error)isAdmin=!!data}refreshAdminUI()}
-function refreshAdminUI(){document.body.classList.toggle('is-admin',isAdmin);let t=document.getElementById('adminStatusText'),e=document.getElementById('adminEmailText'),d=document.getElementById('adminDot');if(t)t.textContent=isAdmin?'管理者：ログイン中':currentAdminUser?'一般アカウント：ログイン中':'管理者：未ログイン';if(e)e.textContent=currentAdminUser?.email||(facilitiesLoaded?'施設情報はSupabaseと同期済み':'施設情報はSupabaseから読み込みます');if(d)d.classList.toggle('on',isAdmin);if(document.getElementById('spotList'))renderSpots()}
-async function initSupabase(){if(!sb){setSyncState('err','Supabase未接続');return}await refreshAdminState();sb.auth.onAuthStateChange(()=>setTimeout(refreshAdminState,0));await loadFacilities()}
-function petChips(){return db.pets.map(p=>`<button class="petChip ${String(p.id)===String(db.activePetId)?'active':''}" onclick="switchPet('${p.id}')">${p.type==='猫'?'🐱':p.type==='犬'?'🐶':'🐾'} ${esc(p.name)}</button>`).join('')}
+async function deleteSpot(id){
+  if(!isAdmin){alert('管理者ログインが必要です');return}
+
+  const key=String(id);
+  const s=db.spots.find(x=>String(x.id)===key);
+  if(!s)return;
+
+  if(!confirm(`「${s.name}」を削除しますか？\n\nこの操作は施設マスタから削除します。`))return;
+
+  setSyncState('', '削除中');
+
+  // Supabase側で対象IDを削除し、削除された行を返して確認
+  const result=await sb
+    .from('facilities')
+    .delete()
+    .eq('id',key)
+    .select('id,name');
+
+  if(result.error){
+    console.error('施設削除エラー',result.error);
+    setSyncState('err','削除エラー');
+    alert('施設を削除できませんでした。Supabaseの管理者権限を確認してください。');
+    return;
+  }
+
+  if(!result.data || result.data.length===0){
+    // 0件削除なら、RLSなどで削除が通っていない可能性
+    const check=await sb.from('facilities').select('id,name').eq('id',key).maybeSingle();
+    if(check.data){
+      setSyncState('err','削除できませんでした');
+      alert('削除処理は実行されましたが、Supabase上に施設が残っています。RLSの削除権限を確認してください。');
+      return;
+    }
+  }
+
+  // ローカル表示から即時除去
+  db.spots=db.spots.filter(x=>String(x.id)!==key);
+
+  // お気に入りIDからも除去
+  db.facilityFavs=(db.facilityFavs||[]).filter(x=>String(x)!==key);
+
+  // 住所ジオコードキャッシュも削除
+  if(typeof geocodeCache!=='undefined' && geocodeCache[key]){
+    delete geocodeCache[key];
+    try{localStorage.setItem(GEO_CACHE_KEY,JSON.stringify(geocodeCache))}catch{}
+  }
+
+  localStorage.setItem(K,JSON.stringify(db));
+
+  renderSpots();
+  renderFeatured();
+  if(map&&spotLayer)renderMapMarkers();
+
+  // Supabaseから再読込し、削除済み状態を最終確認
+  await loadFacilities();
+
+  const stillExists=db.spots.some(x=>String(x.id)===key);
+  if(stillExists){
+    setSyncState('err','再読込後も残っています');
+    alert('削除後に施設が再表示されました。初期データまたはSupabase側に同じIDの施設が残っています。');
+    return;
+  }
+
+  setSyncState('ok','削除済み');
+  alert(`「${s.name}」を削除しました`);
+}
 function renderPets(){let p=activePet();petSwitcher.innerHTML=petChips();healthPetLabel.innerHTML=petChips();safetyPetLabel.innerHTML=petChips();let el=document.getElementById('petCard');if(!p){el.innerHTML='<div class="empty">🐾 まだペットが登録されていません<br><button class="btn" style="margin-top:12px" onclick="openNewPet()">最初の1匹を登録</button></div>';return}el.innerHTML=`<div class="pet">${p.photo?`<img class="petPhoto" src="${p.photo}" alt="${esc(p.name)}の写真">`:`<div class="avatar">${p.type==='猫'?'🐱':p.type==='犬'?'🐶':'🐾'}</div>`}<div class="petMain"><h3>${esc(p.name)}</h3><div class="muted">${esc(p.breed||p.type)} ${p.weight?`・${esc(p.weight)}kg`:''}${p.birth?` ・ ${esc(p.birth)}`:''}</div><div style="margin-top:5px">${p.memo?`<span class="pill">📝 ${esc(p.memo)}</span>`:''}</div><div class="petActions"><button onclick="openPetRecord('${p.id}')">🩺 カルテ</button><button onclick="editPet('${p.id}')">✏️ 編集</button><button class="delete" onclick="deletePet('${p.id}')">🗑️ 削除</button></div></div></div>`}
 function renderHealth(){let p=activePet();let xs=p?db.health.filter(h=>String(h.petId)===String(p.id)):[];healthCount.textContent=xs.length+'件';let w=xs.find(x=>x.type==='体重');weightKpi.textContent=w?String(w.value).replace(/kg/i,'')+' kg':(p?.weight?p.weight+' kg':'-- kg');healthList.innerHTML=xs.length?xs.map(h=>`<div class="row"><div><strong>${esc(h.type)} ・ ${esc(h.value||'記録')}</strong><span class="muted">${esc(h.date)} ${h.memo?'・'+esc(h.memo):''}</span></div><button class="btn secondary" onclick="deleteHealth('${h.id}')">削除</button></div>`).join(''):'<div class="empty">この子の健康記録はまだありません</div>';todayChecks.innerHTML=xs.slice(0,3).map(h=>`<div class="row"><div><strong>${esc(h.type)}</strong><span class="muted">${esc(h.value||'')} ${esc(h.date)}</span></div><span>✓</span></div>`).join('')||'<div class="empty">「記録」から今日の状態を残せます</div>';let future=xs.filter(h=>h.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date))[0];nextPlan.textContent=future?future.date.slice(5).replace('-','/'): '未登録'}
 function deleteHealth(id){db.health=db.health.filter(x=>String(x.id)!==String(id));persist()}
