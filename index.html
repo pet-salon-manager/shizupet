@@ -5,20 +5,127 @@
 .recoCard{border:1px solid rgba(184,154,93,.45)!important;box-shadow:0 18px 42px rgba(184,154,93,.18)!important}
 .actions .recommend{background:#fff7dc;color:#735414;border-color:#dfc16f;font-weight:800}
 .adminAdd{width:100%;font-size:16px;padding:13px 15px;box-shadow:0 10px 24px rgba(21,52,45,.16)}
+
+.prBadge{display:inline-flex;align-items:center;background:#f1eee8;color:#6f6252;border:1px solid rgba(80,60,35,.14);border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;margin:0 6px 7px 0}
+.couponBadge{display:inline-flex;align-items:center;background:#fff1d4;color:#865b16;border:1px solid #e9cf96;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:800;margin:0 6px 7px 0}
+.sponsorCard{border:1px solid rgba(184,154,93,.55)!important;box-shadow:0 22px 48px rgba(184,154,93,.18)!important}
+.couponAction{background:#fff3dd!important;color:#805711!important;border-color:#e5c68d!important;font-weight:800}
+.analyticsBtn{margin-top:8px;width:100%}
+.statGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:12px 0}
+.statBox{padding:12px;border-radius:16px;background:#f8f1e4;border:1px solid rgba(80,60,35,.1)}
+.statBox strong{display:block;font-size:24px;color:var(--pri)}
+.analyticsList{display:grid;gap:8px}
+.analyticsRow{padding:10px;border-radius:13px;background:#faf6ef;border:1px solid rgba(80,60,35,.08)}
+.couponCard{padding:14px;border-radius:18px;background:linear-gradient(180deg,#fffaf0,#f6e7c9);border:1px solid rgba(184,154,93,.25)}
+.couponCode{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:22px;font-weight:900;letter-spacing:.08em;text-align:center;padding:12px;border:1px dashed #bd9850;background:white;border-radius:13px;margin:12px 0}
 </style></head><body><div class="app"><header class="hero"><h1>🐾 しずペットマップ</h1><p>静岡県のペット関連施設を、現在地からすぐ探せます。</p></header><section class="section"><div class="mapCard"><div class="mapHead"><h2>🗺️ 近くのペット施設</h2><button class="btn secondary" onclick="locateMe(false)">◎ 現在地</button></div><div id="map"></div></div><div style="height:14px"></div><button id="addFacilityBtn" class="btn adminAdd" style="margin-bottom:12px" onclick="adminTopAction()">🔐 管理者ログイン</button>
+  <button id="analyticsBtn" class="btn secondary analyticsBtn" style="display:none;margin-bottom:12px" onclick="openAnalytics()">📊 掲載実績を見る</button>
   <input id="search" class="search" placeholder="施設名・市町・カテゴリで検索" oninput="renderSpots()"><div id="typeFilters" class="filters"></div><div id="count" class="count"></div><div id="spotList" class="list"></div><div class="adminBox"><div class="adminRow"><div><strong id="adminStatus">管理者：未ログイン</strong><div class="muted">施設情報の追加・編集・削除は管理者のみ</div></div><button id="adminBtn" class="btn secondary" onclick="openAdmin()">ログイン</button></div></div></section></div>
+<div id="couponModal" class="modal"><div class="sheet">
+  <div class="sheetHead"><h2>🎟️ 店舗クーポン</h2><button onclick="closeModal('couponModal')">✕</button></div>
+  <div id="couponBody"></div>
+</div></div>
+
+<div id="analyticsModal" class="modal"><div class="sheet">
+  <div class="sheetHead"><h2>📊 掲載実績</h2><button onclick="closeModal('analyticsModal')">✕</button></div>
+  <div class="muted">直近30日間のタップ数です。スポンサー掲載の営業資料として使えます。</div>
+  <div id="analyticsBody"><div class="empty">読み込み中…</div></div>
+</div></div>
+
 <div id="adminModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>管理者ログイン</h2><button onclick="closeModal('adminModal')">✕</button></div><form class="form" onsubmit="adminLogin(event)"><input id="adminEmail" type="email" placeholder="メールアドレス" required><input id="adminPassword" type="password" placeholder="パスワード" required><button class="btn">ログイン</button></form></div></div>
 <div id="facilityModal" class="modal"><div class="sheet"><div class="sheetHead"><h2 id="facilityTitle">施設情報を編集</h2><button onclick="closeModal('facilityModal')">✕</button></div><form class="form" onsubmit="saveFacility(event)"><input id="facilityId" type="hidden"><input id="facilityName" placeholder="施設名" required><select id="facilityArea"><option>東部</option><option>中部</option><option>西部</option><option>伊豆</option></select><input id="facilityCity" placeholder="市町"><input id="facilityAddress" placeholder="住所"><select id="facilityType"><option>動物病院</option><option>トリミング</option><option>ペット用品</option><option>ドッグラン</option><option>ペット同伴</option><option>宿泊</option><option>その他</option></select><input id="facilityUrl" type="url" placeholder="公式ホームページURL"><input id="facilityPhone" type="tel" placeholder="電話番号"><input id="facilityLat" type="number" step="any" placeholder="緯度"><input id="facilityLng" type="number" step="any" placeholder="経度"><label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
       <input id="facilityRecommended" type="checkbox" style="width:22px;height:22px">
       <span>⭐ おすすめのお店に設定する</span>
     </label>
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
+      <input id="facilitySponsored" type="checkbox" style="width:22px;height:22px">
+      <span>PR・スポンサー店舗として表示する</span>
+    </label>
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
+      <input id="facilityCouponEnabled" type="checkbox" style="width:22px;height:22px">
+      <span>🎟️ クーポンを表示する</span>
+    </label>
+    <input id="facilityCouponTitle" placeholder="クーポン名 例：初回10%OFF">
+    <input id="facilityCouponCode" placeholder="クーポンコード 例：SHIZUPET10">
+    <input id="facilityCouponTerms" placeholder="利用条件 例：初回限定・他券併用不可">
     <button class="btn">保存</button></form></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
 const SUPABASE_URL='https://abofyfovxysqzchstnbx.supabase.co';const SUPABASE_KEY='sb_publishable_pslo3qPFj50r2AQx_zx0ew_ywzBdxIj';const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);let spots=[],map,layer,currentMarker,currentPos,isAdmin=false,activeType='すべて';const types=['すべて','動物病院','トリミング','ペット用品','ドッグラン','ペット同伴','宿泊','その他'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function safeUrl(u){try{let x=new URL(u);return ['http:','https:'].includes(x.protocol)?x.href:'#'}catch{return '#'}}function openModal(id){document.getElementById(id).classList.add('open')}function closeModal(id){document.getElementById(id).classList.remove('open')}function iconFor(t){return t==='動物病院'?'🏥':t==='トリミング'?'✂️':t==='ペット用品'?'🛍️':t==='ドッグラン'?'🐕':t==='宿泊'?'🏨':'📍'}
 function initMap(){if(map||!window.L)return;map=L.map('map').setView([34.98,138.38],8);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);layer=L.layerGroup().addTo(map);setTimeout(()=>map.invalidateSize(),200)}function getPos(s){if(Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng)))return [Number(s.lat),Number(s.lng)];return null}function renderMap(){if(!map||!layer)return;layer.clearLayers();filtered().forEach(s=>{let p=getPos(s);if(!p)return;let m=L.marker(p).addTo(layer);m.bindPopup(`<strong>${esc(s.name)}</strong><br>${esc(s.city||'静岡県')}・${esc(s.type)}<br><button onclick="routeTo('${s.id}')">現在地から行く</button>`)})}
 function locateMe(silent=false){if(!navigator.geolocation){if(!silent)alert('現在地を取得できません');return}navigator.geolocation.getCurrentPosition(pos=>{currentPos=[pos.coords.latitude,pos.coords.longitude];if(currentMarker)currentMarker.remove();let icon=L.divIcon({className:'',html:'<div class="currentDot"></div>',iconSize:[18,18],iconAnchor:[9,9]});currentMarker=L.marker(currentPos,{icon}).addTo(map).bindPopup('現在地');map.setView(currentPos,12);renderSpots()},()=>{if(!silent)alert('位置情報を許可してください')},{enableHighAccuracy:true,timeout:8000,maximumAge:120000})}
-function distanceKm(a,b){if(!a||!b)return null;let R=6371,toRad=x=>x*Math.PI/180,dLat=toRad(b[0]-a[0]),dLon=toRad(b[1]-a[1]),x=Math.sin(dLat/2)**2+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}function filtered(){let q=(search.value||'').toLowerCase();let xs=spots.filter(s=>(activeType==='すべて'||s.type===activeType)&&(`${s.name} ${s.city||''} ${s.type||''} ${s.address||''}`.toLowerCase().includes(q)));if(currentPos)xs=xs.map(s=>({...s,_d:distanceKm(currentPos,getPos(s))})).sort((a,b)=>(a._d??9999)-(b._d??9999));return xs}function setupFilters(){typeFilters.innerHTML=types.map(t=>`<button class="${activeType===t?'active':''}" onclick="activeType='${t}';setupFilters();renderSpots()">${t}</button>`).join('')}
+function distanceKm(a,b){if(!a||!b)return null;let R=6371,toRad=x=>x*Math.PI/180,dLat=toRad(b[0]-a[0]),dLon=toRad(b[1]-a[1]),x=Math.sin(dLat/2)**2+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+function couponActive(s){return !!(s&&s.coupon_enabled&&String(s.coupon_title||'').trim())}
+
+async function trackEvent(facilityId,eventType){
+  try{
+    await sb.from('facility_events').insert({facility_id:String(facilityId),event_type:eventType});
+  }catch(e){console.warn('計測をスキップ',e)}
+}
+
+function openOfficial(id){
+  let s=spots.find(x=>String(x.id)===String(id));if(!s||!s.url)return;
+  trackEvent(s.id,'homepage');
+  window.open(safeUrl(s.url),'_blank')
+}
+function callFacility(id){
+  let s=spots.find(x=>String(x.id)===String(id));if(!s||!s.phone)return;
+  trackEvent(s.id,'phone');
+  location.href='tel:'+s.phone
+}
+function openCoupon(id){
+  let s=spots.find(x=>String(x.id)===String(id));if(!s||!couponActive(s))return;
+  trackEvent(s.id,'coupon');
+  couponBody.innerHTML=`<div class="couponCard">
+    ${s.sponsored?'<span class="prBadge">PR</span>':''}
+    <h3 style="margin:6px 0">${esc(s.name)}</h3>
+    <strong style="font-size:19px">${esc(s.coupon_title)}</strong>
+    ${s.coupon_code?`<div class="couponCode">${esc(s.coupon_code)}</div>`:''}
+    <div class="muted">${esc(s.coupon_terms||'利用時にこの画面を店舗スタッフへ提示してください。')}</div>
+  </div>`;
+  openModal('couponModal')
+}
+
+async function openAnalytics(){
+  if(!isAdmin)return;
+  openModal('analyticsModal');
+  analyticsBody.innerHTML='<div class="empty">読み込み中…</div>';
+  let since=new Date(Date.now()-30*24*60*60*1000).toISOString();
+  let {data,error}=await sb.from('facility_events').select('facility_id,event_type,created_at').gte('created_at',since);
+  if(error){
+    console.error(error);
+    analyticsBody.innerHTML='<div class="empty">掲載実績を読み込めませんでした。SQL設定を確認してください。</div>';
+    return;
+  }
+  let rows=data||[], counts={};
+  for(let e of rows){
+    let k=String(e.facility_id);
+    counts[k]=counts[k]||{homepage:0,phone:0,route:0,coupon:0,total:0};
+    if(counts[k][e.event_type]!==undefined)counts[k][e.event_type]++;
+    counts[k].total++;
+  }
+  let total=rows.length;
+  let hp=rows.filter(x=>x.event_type==='homepage').length;
+  let phone=rows.filter(x=>x.event_type==='phone').length;
+  let route=rows.filter(x=>x.event_type==='route').length;
+  let coupon=rows.filter(x=>x.event_type==='coupon').length;
+
+  let ranked=Object.entries(counts).sort((a,b)=>b[1].total-a[1].total).slice(0,20);
+  analyticsBody.innerHTML=`<div class="statGrid">
+    <div class="statBox"><span class="muted">総タップ</span><strong>${total}</strong></div>
+    <div class="statBox"><span class="muted">公式HP</span><strong>${hp}</strong></div>
+    <div class="statBox"><span class="muted">電話</span><strong>${phone}</strong></div>
+    <div class="statBox"><span class="muted">経路</span><strong>${route}</strong></div>
+    <div class="statBox"><span class="muted">クーポン</span><strong>${coupon}</strong></div>
+  </div>
+  <h3>店舗別</h3>
+  <div class="analyticsList">${ranked.length?ranked.map(([id,c])=>{
+    let s=spots.find(x=>String(x.id)===id);
+    return `<div class="analyticsRow"><strong>${esc(s?.name||id)}</strong><div class="muted">合計 ${c.total}回 ｜ HP ${c.homepage} ｜ 電話 ${c.phone} ｜ 経路 ${c.route} ｜ クーポン ${c.coupon}</div></div>`
+  }).join(''):'<div class="empty">まだ計測データがありません</div>'}</div>`;
+}
+
+function filtered(){let q=(search.value||'').toLowerCase();let xs=spots.filter(s=>(activeType==='すべて'||s.type===activeType)&&(`${s.name} ${s.city||''} ${s.type||''} ${s.address||''}`.toLowerCase().includes(q)));if(currentPos)xs=xs.map(s=>({...s,_d:distanceKm(currentPos,getPos(s))})).sort((a,b)=>(a._d??9999)-(b._d??9999));return xs}function setupFilters(){typeFilters.innerHTML=types.map(t=>`<button class="${activeType===t?'active':''}" onclick="activeType='${t}';setupFilters();renderSpots()">${t}</button>`).join('')}
 function renderSpots(){let xs=filtered();count.textContent=`${xs.length}件`;spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot"><div class="spotTop"><div class="icon">${iconFor(s.type)}</div><div style="flex:1"><h3>${esc(s.name)}</h3><div class="muted">${esc(s.city||'静岡県')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s._d!=null?`<div class="tag">現在地から直線距離 約${s._d.toFixed(s._d<10?1:0)}km</div>`:''}<div class="actions">${s.url?`<button onclick="window.open('${safeUrl(s.url)}','_blank')">🌐 公式HP</button>`:''}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">☎️ 電話</button>`:''}<button class="primary" onclick="routeTo('${s.id}')">🧭 経路</button>${isAdmin?`<button class="recommend" onclick="toggleRecommended('${s.id}')">${s.recommended?'⭐ おすすめ解除':'☆ おすすめ指定'}</button><button onclick="editFacility('${s.id}')">✏️ 編集</button><button class="danger" onclick="deleteFacility('${s.id}')">削除</button>`:''}</div></div></div></div>`).join(''):'<div class="card empty">条件に合う施設がありません</div>';renderMap()}
 async function loadFacilities(){let {data,error}=await sb.from('facilities').select('*').eq('is_active',true).order('name');if(error){console.error(error);spotList.innerHTML='<div class="card empty">施設情報を読み込めませんでした</div>';return}spots=data||[];renderSpots()}function routeTo(id){let s=spots.find(x=>String(x.id)===String(id));if(!s)return;let p=getPos(s),destination=s.address?encodeURIComponent(s.address):(p?`${p[0]},${p[1]}`:'');if(!destination)return alert('位置情報がありません');let open=o=>location.href=`https://maps.apple.com/?saddr=${o[0]},${o[1]}&daddr=${destination}&dirflg=d`;if(currentPos)open(currentPos);else navigator.geolocation.getCurrentPosition(pos=>open([pos.coords.latitude,pos.coords.longitude]),()=>alert('現在地を取得できません'))}
 function adminTopAction(){
@@ -30,6 +137,7 @@ async function openAdmin(){if(isAdmin){if(confirm('ログアウトしますか�
   adminBtn.textContent=isAdmin?'ログアウト':'ログイン';
   addFacilityBtn.textContent=isAdmin?'＋ 新しい施設を追加':'🔐 管理者ログイン';
   addFacilityBtn.classList.toggle('secondary',!isAdmin);
+  analyticsBtn.style.display=isAdmin?'block':'none';
 }
 function newFacility(){
   if(!isAdmin){openAdmin();return}
@@ -45,6 +153,11 @@ function newFacility(){
   facilityLat.value='';
   facilityLng.value='';
   facilityRecommended.checked=false;
+  facilitySponsored.checked=false;
+  facilityCouponEnabled.checked=false;
+  facilityCouponTitle.value='';
+  facilityCouponCode.value='';
+  facilityCouponTerms.value='';
   openModal('facilityModal')
 }
 
@@ -70,6 +183,11 @@ function editFacility(id){
   facilityLat.value=s.lat??'';
   facilityLng.value=s.lng??'';
   facilityRecommended.checked=!!s.recommended;
+  facilitySponsored.checked=!!s.sponsored;
+  facilityCouponEnabled.checked=!!s.coupon_enabled;
+  facilityCouponTitle.value=s.coupon_title||'';
+  facilityCouponCode.value=s.coupon_code||'';
+  facilityCouponTerms.value=s.coupon_terms||'';
   openModal('facilityModal')
 }async function saveFacility(e){
   e.preventDefault();
@@ -87,6 +205,11 @@ function editFacility(id){
     lat:facilityLat.value===''?null:Number(facilityLat.value),
     lng:facilityLng.value===''?null:Number(facilityLng.value),
     recommended:facilityRecommended.checked,
+    sponsored:facilitySponsored.checked,
+    coupon_enabled:facilityCouponEnabled.checked,
+    coupon_title:facilityCouponTitle.value.trim()||null,
+    coupon_code:facilityCouponCode.value.trim()||null,
+    coupon_terms:facilityCouponTerms.value.trim()||null,
     is_active:true
   };
 
