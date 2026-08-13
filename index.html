@@ -20,16 +20,19 @@
     </label>
     <button class="btn">保存</button></form></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
-const SUPABASE_URL='https://abofyfovxysqzchstnbx.supabase.co';const SUPABASE_KEY='sb_publishable_pslo3qPFj50r2AQx_zx0ew_ywzBdxIj';const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);let spots=[],map,layer,currentMarker,currentPos,isAdmin=false,activeType='すべて';const types=['すべて','動物病院','トリミング','ペット用品','ドッグラン','ペット同伴','宿泊','その他'];
+const SUPABASE_URL='https://abofyfovxysqzchstnbx.supabase.co';const SUPABASE_KEY='sb_publishable_pslo3qPFj50r2AQx_zx0ew_ywzBdxIj';const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);let spots=[],map,layer,currentMarker,currentPos,isAdmin=false,activeType='すべて',recommendedOnly=false;const types=['すべて','動物病院','トリミング','ペット用品','ドッグラン','ペット同伴','宿泊','その他'];
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function safeUrl(u){try{let x=new URL(u);return ['http:','https:'].includes(x.protocol)?x.href:'#'}catch{return '#'}}function openModal(id){document.getElementById(id).classList.add('open')}function closeModal(id){document.getElementById(id).classList.remove('open')}function iconFor(t){return t==='動物病院'?'🏥':t==='トリミング'?'✂️':t==='ペット用品'?'🛍️':t==='ドッグラン'?'🐕':t==='宿泊'?'🏨':'📍'}
 function initMap(){if(map||!window.L)return;map=L.map('map').setView([34.98,138.38],8);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);layer=L.layerGroup().addTo(map);setTimeout(()=>map.invalidateSize(),200)}function getPos(s){if(Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng)))return [Number(s.lat),Number(s.lng)];return null}function renderMap(){if(!map||!layer)return;layer.clearLayers();filtered().forEach(s=>{let p=getPos(s);if(!p)return;let m=L.marker(p).addTo(layer);m.bindPopup(`<strong>${esc(s.name)}</strong><br>${esc(s.city||'静岡県')}・${esc(s.type)}<br><button onclick="routeTo('${s.id}')">現在地から行く</button>`)})}
 function locateMe(silent=false){if(!navigator.geolocation){if(!silent)alert('現在地を取得できません');return}navigator.geolocation.getCurrentPosition(pos=>{currentPos=[pos.coords.latitude,pos.coords.longitude];if(currentMarker)currentMarker.remove();let icon=L.divIcon({className:'',html:'<div class="currentDot"></div>',iconSize:[18,18],iconAnchor:[9,9]});currentMarker=L.marker(currentPos,{icon}).addTo(map).bindPopup('現在地');map.setView(currentPos,12);renderSpots()},()=>{if(!silent)alert('位置情報を許可してください')},{enableHighAccuracy:true,timeout:8000,maximumAge:120000})}
 function distanceKm(a,b){if(!a||!b)return null;let R=6371,toRad=x=>x*Math.PI/180,dLat=toRad(b[0]-a[0]),dLon=toRad(b[1]-a[1]),x=Math.sin(dLat/2)**2+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}function toggleRecommendedFilter(){
   recommendedOnly=!recommendedOnly;
-  recommendedFilterBtn.classList.toggle('active',recommendedOnly);
-  recommendedFilterBtn.textContent=recommendedOnly
-    ? '✓ おすすめ店舗を表示中（解除）'
-    : '⭐ おすすめ店舗だけ表示';
+  const btn=document.getElementById('recommendedFilterBtn');
+  if(btn){
+    btn.classList.toggle('active',recommendedOnly);
+    btn.textContent=recommendedOnly
+      ? '✓ おすすめ店舗を表示中（解除）'
+      : '⭐ おすすめ店舗だけ表示';
+  }
   renderSpots();
 }
 
