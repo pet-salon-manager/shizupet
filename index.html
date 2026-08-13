@@ -20,7 +20,17 @@ function initMap(){if(map||!window.L)return;map=L.map('map').setView([34.98,138.
 function locateMe(silent=false){if(!navigator.geolocation){if(!silent)alert('現在地を取得できません');return}navigator.geolocation.getCurrentPosition(pos=>{currentPos=[pos.coords.latitude,pos.coords.longitude];if(currentMarker)currentMarker.remove();let icon=L.divIcon({className:'',html:'<div class="currentDot"></div>',iconSize:[18,18],iconAnchor:[9,9]});currentMarker=L.marker(currentPos,{icon}).addTo(map).bindPopup('現在地');map.setView(currentPos,12);renderSpots()},()=>{if(!silent)alert('位置情報を許可してください')},{enableHighAccuracy:true,timeout:8000,maximumAge:120000})}
 function distanceKm(a,b){if(!a||!b)return null;let R=6371,toRad=x=>x*Math.PI/180,dLat=toRad(b[0]-a[0]),dLon=toRad(b[1]-a[1]),x=Math.sin(dLat/2)**2+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}function filtered(){let q=(search.value||'').toLowerCase();let xs=spots.filter(s=>(activeType==='すべて'||s.type===activeType)&&(`${s.name} ${s.city||''} ${s.type||''} ${s.address||''}`.toLowerCase().includes(q)));if(currentPos)xs=xs.map(s=>({...s,_d:distanceKm(currentPos,getPos(s))})).sort((a,b)=>(a._d??9999)-(b._d??9999));return xs}function setupFilters(){typeFilters.innerHTML=types.map(t=>`<button class="${activeType===t?'active':''}" onclick="activeType='${t}';setupFilters();renderSpots()">${t}</button>`).join('')}
 function renderSpots(){let xs=filtered();count.textContent=`${xs.length}件`;spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot"><div class="spotTop"><div class="icon">${iconFor(s.type)}</div><div style="flex:1"><h3>${esc(s.name)}</h3><div class="muted">${esc(s.city||'静岡県')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s._d!=null?`<div class="tag">現在地から直線距離 約${s._d.toFixed(s._d<10?1:0)}km</div>`:''}<div class="actions">${s.url?`<button onclick="window.open('${safeUrl(s.url)}','_blank')">🌐 公式HP</button>`:''}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">☎️ 電話</button>`:''}<button class="primary" onclick="routeTo('${s.id}')">🧭 経路</button>${isAdmin?`<button class="recommend" onclick="toggleRecommended('${s.id}')">${s.recommended?'⭐ おすすめ解除':'☆ おすすめ指定'}</button><button onclick="editFacility('${s.id}')">✏️ 編集</button><button class="danger" onclick="deleteFacility('${s.id}')">削除</button>`:''}</div></div></div></div>`).join(''):'<div class="card empty">条件に合う施設がありません</div>';renderMap()}
-async function loadFacilities(){let {data,error}=await sb.from('facilities').select('*').eq('is_active',true).order('name');if(error){console.error(error);spotList.innerHTML='<div class="card empty">施設情報を読み込めませんでした</div>';return}spots=data||[];renderSpots()}function routeTo(id){let s=spots.find(x=>String(x.id)===String(id));if(!s)return;let p=getPos(s),destination=s.address?encodeURIComponent(s.address):(p?`${p[0]},${p[1]}`:'');if(!destination)return alert('位置情報がありません');let open=o=>location.href=`https://maps.apple.com/?saddr=${o[0]},${o[1]}&daddr=${destination}&dirflg=d`;if(currentPos)open(currentPos);else navigator.geolocation.getCurrentPosition(pos=>open([pos.coords.latitude,pos.coords.longitude]),()=>alert('現在地を取得できません'))}
+async function loadFacilities(){
+  let {data,error}=await sb.from('facilities').select('*').order('name');
+  if(error){
+    console.error(error);
+    count.textContent='0件';
+    spotList.innerHTML='<div class="card empty">施設情報を読み込めませんでした</div>';
+    return
+  }
+  spots=(data||[]).filter(s=>s.is_active!==false);
+  renderSpots()
+}function routeTo(id){let s=spots.find(x=>String(x.id)===String(id));if(!s)return;let p=getPos(s),destination=s.address?encodeURIComponent(s.address):(p?`${p[0]},${p[1]}`:'');if(!destination)return alert('位置情報がありません');let open=o=>location.href=`https://maps.apple.com/?saddr=${o[0]},${o[1]}&daddr=${destination}&dirflg=d`;if(currentPos)open(currentPos);else navigator.geolocation.getCurrentPosition(pos=>open([pos.coords.latitude,pos.coords.longitude]),()=>alert('現在地を取得できません'))}
 function adminTopAction(){
   if(isAdmin)newFacility();
   else openAdmin();
@@ -56,6 +66,61 @@ async function toggleRecommended(id){
   await loadFacilities()
 }
 
-function editFacility(id){let s=spots.find(x=>String(x.id)===String(id));if(!s)return;facilityId.value=s.id;facilityName.value=s.name||'';facilityArea.value=s.area||'東部';facilityCity.value=s.city||'';facilityAddress.value=s.address||'';facilityType.value=s.type||'その他';facilityUrl.value=s.url||'';facilityPhone.value=s.phone||'';facilityLat.value=s.lat??'';facilityLng.value=s.lng??'';openModal('facilityModal')}async function saveFacility(e){e.preventDefault();if(!isAdmin)return;let id=facilityId.value,row={name:facilityName.value.trim(),area:facilityArea.value,city:facilityCity.value.trim(),address:facilityAddress.value.trim()||null,type:facilityType.value,url:facilityUrl.value.trim()||null,phone:facilityPhone.value.trim()||null,lat:facilityLat.value===''?null:Number(facilityLat.value),lng:facilityLng.value===''?null:Number(facilityLng.value),is_active:true};let {error}=await sb.from('facilities').update(row).eq('id',id);if(error)return alert('保存できませんでした');closeModal('facilityModal');await loadFacilities()}async function deleteFacility(id){if(!isAdmin)return;let s=spots.find(x=>String(x.id)===String(id));if(!s||!confirm(`「${s.name}」を削除しますか？`))return;let {error}=await sb.from('facilities').update({is_active:false}).eq('id',id);if(error)return alert('削除できませんでした');await loadFacilities()}
+function editFacility(id){
+  let s=spots.find(x=>String(x.id)===String(id));if(!s)return;
+  facilityTitle.textContent='施設情報を編集';
+  facilityId.value=s.id;
+  facilityName.value=s.name||'';
+  facilityArea.value=s.area||'東部';
+  facilityCity.value=s.city||'';
+  facilityAddress.value=s.address||'';
+  facilityType.value=s.type||'その他';
+  facilityUrl.value=s.url||'';
+  facilityPhone.value=s.phone||'';
+  facilityLat.value=s.lat??'';
+  facilityLng.value=s.lng??'';
+  facilityRecommended.checked=!!s.recommended;
+  openModal('facilityModal')
+}async function saveFacility(e){
+  e.preventDefault();
+  if(!isAdmin){alert('管理者ログインが必要です');return}
+
+  const editing=!!facilityId.value.trim();
+  let id=facilityId.value.trim();
+
+  const row={
+    name:facilityName.value.trim(),
+    area:facilityArea.value,
+    city:facilityCity.value.trim(),
+    address:facilityAddress.value.trim()||null,
+    type:facilityType.value,
+    url:facilityUrl.value.trim()||null,
+    phone:facilityPhone.value.trim()||null,
+    lat:facilityLat.value===''?null:Number(facilityLat.value),
+    lng:facilityLng.value===''?null:Number(facilityLng.value),
+    recommended:facilityRecommended.checked,
+    is_active:true
+  };
+
+  if(!row.name){alert('施設名を入力してください');return}
+
+  let result;
+  if(editing){
+    result=await sb.from('facilities').update(row).eq('id',id).select('*').single();
+  }else{
+    id='f-'+(crypto.randomUUID?crypto.randomUUID():Date.now());
+    result=await sb.from('facilities').insert({id,...row}).select('*').single();
+  }
+
+  if(result.error){
+    console.error(result.error);
+    alert('保存できませんでした。Supabaseの権限設定を確認してください。');
+    return
+  }
+
+  closeModal('facilityModal');
+  await loadFacilities();
+  alert(editing?'施設情報を更新しました':'新しい施設を追加しました');
+}async function deleteFacility(id){if(!isAdmin)return;let s=spots.find(x=>String(x.id)===String(id));if(!s||!confirm(`「${s.name}」を削除しますか？`))return;let {error}=await sb.from('facilities').update({is_active:false}).eq('id',id);if(error)return alert('削除できませんでした');await loadFacilities()}
 async function init(){setupFilters();initMap();let {data}=await sb.auth.getSession();if(data.session){let {data:ok}=await sb.rpc('is_app_admin');isAdmin=!!ok}refreshAdmin();await loadFacilities();locateMe(true)}init();
 </script></body></html>
