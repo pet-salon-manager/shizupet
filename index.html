@@ -203,8 +203,20 @@ function migrate(x){
   x.pets=Array.isArray(x.pets)?x.pets:[]; x.health=Array.isArray(x.health)?x.health:[];
   let existing=Array.isArray(x.spots)?x.spots:[];
   existing=existing.filter(s=>!['s1','s2','s3','s4'].includes(String(s.id))&&!String(s.name||'').includes('サンプル'));
-  let byName=new Set(existing.map(s=>s.name));
-  x.spots=[...existing,...actualSpots.filter(s=>!byName.has(s.name))];
+
+  // Supabaseで施設マスタを一元管理するため、同じ施設IDを二重登録しない。
+  // 施設名を変更しても古い初期データが復活しないよう、IDを基準に整理する。
+  let seenIds=new Set();
+  existing=existing.filter(s=>{
+    let key=String(s.id);
+    if(seenIds.has(key))return false;
+    seenIds.add(key);
+    return true;
+  });
+
+  // 端末に施設データがまったく無い初回だけ初期データを表示。
+  // Supabase読み込み後はサーバーの値だけを使用する。
+  x.spots=existing.length?existing:[...actualSpots];
   if(!x.activePetId&&x.pets[0]) x.activePetId=x.pets[0].id;
   x.health=x.health.map(h=>({...h,petId:h.petId??x.activePetId??null}));
   if(!x.safetyByPet){x.safetyByPet={}; if(x.activePetId&&x.safety) x.safetyByPet[String(x.activePetId)]=x.safety;}
@@ -230,7 +242,17 @@ function switchPet(id){db.activePetId=id;localStorage.setItem(K,JSON.stringify(d
 function openHealthModal(){let p=activePet();if(!p){alert('先にペットを登録してください');openNewPet();return}healthModalPet.textContent=`対象：${p.name}`;healthDate.valueAsDate=new Date();openModal('healthModal')}
 function saveHealth(e){e.preventDefault();let p=activePet();if(!p)return;db.health.unshift({id:Date.now(),petId:p.id,type:healthType.value,date:healthDate.value,value:healthValue.value,memo:healthMemo.value});e.target.reset();closeModal('healthModal');persist()}
 function applyFacilityFavs(rows){let favs=new Set((db.facilityFavs||[]).map(String));return (rows||[]).map(r=>({...r,fav:favs.has(String(r.id))}))}
-async function loadFacilities(){if(!sb){setSyncState('err','Supabase未接続');return false}setSyncState('', '同期中');let{data,error}=await sb.from('facilities').select('*').eq('is_active',true).order('area').order('city').order('name');if(error){console.error(error);setSyncState('err','接続エラー');return false}db.spots=applyFacilityFavs(data||[]);facilitiesLoaded=true;localStorage.setItem(K,JSON.stringify(db));setSyncState('ok','同期済み');renderSpots();renderFeatured();if(map&&spotLayer)renderMapMarkers();return true}
+async function loadFacilities(){if(!sb){setSyncState('err','Supabase未接続');return false}setSyncState('', '同期中');let{data,error}=await sb.from('facilities').select('*').eq('is_active',true).order('area').order('city').order('name');if(error){console.error(error);setSyncState('err','接続エラー');return false}let serverRows=applyFacilityFavs(data||[]);
+let uniqueRows=[];let seenServerIds=new Set();
+for(let r of serverRows){let k=String(r.id);if(seenServerIds.has(k))continue;seenServerIds.add(k);uniqueRows.push(r)}
+db.spots=uniqueRows;facilitiesLoaded=true;localStorage.setItem(K,JSON.stringify(db));setSyncState('ok','同期済み');renderSpots();renderFeatured();if(map&&spotLayer)renderMapMarkers();return true}
+function showSavedFacilitySummary(s){
+  let parts=[s.name];
+  if(s.address)parts.push(s.address);
+  if(s.phone)parts.push(s.phone);
+  if(s.url)parts.push('公式HP登録済み');
+  alert('保存しました\n\n'+parts.join('\n'));
+}
 function setSyncState(state,text){let el=document.getElementById('syncBadge');if(!el)return;el.className='syncBadge'+(state?' '+state:'');el.textContent=text}
 function openNewSpot(){if(!isAdmin){openAdminLogin();return}spotEditId.value='';spotModalTitle.textContent='県内スポット追加';spotSaveBtn.textContent='追加する';spotName.value='';spotArea.value='東部';spotCity.value='';spotAddress.value='';spotType.value='動物病院';spotUrl.value='';spotPhone.value='';spotLat.value='';spotLng.value='';spotApprox.value='true';spotMemo.value='';spotRecommended.checked=false;spotSponsored.checked=false;spotCouponEnabled.checked=false;spotCouponTitle.value='';spotCouponCode.value='';spotCouponTerms.value='';openModal('spotModal')}
 function editSpot(id){if(!isAdmin){openAdminLogin();return}let s=db.spots.find(x=>String(x.id)===String(id));if(!s)return;spotEditId.value=s.id;spotModalTitle.textContent='施設情報を編集';spotSaveBtn.textContent='変更を保存';spotName.value=s.name||'';spotArea.value=s.area||'東部';spotCity.value=s.city||'';spotAddress.value=s.address||'';spotType.value=s.type||'その他';spotUrl.value=s.url||'';spotPhone.value=s.phone||'';spotLat.value=s.lat??'';spotLng.value=s.lng??'';spotApprox.value=String(s.approx!==false);spotMemo.value=s.memo||'';spotRecommended.checked=!!s.recommended;spotSponsored.checked=!!s.sponsored;spotCouponEnabled.checked=!!s.coupon_enabled;spotCouponTitle.value=s.coupon_title||'';spotCouponCode.value=s.coupon_code||'';spotCouponTerms.value=s.coupon_terms||'';openModal('spotModal')}
@@ -339,7 +361,7 @@ async function saveSpot(e){
   // 最後にSupabase全件と同期
   await loadFacilities();
 
-  alert('施設情報を更新しました');
+  showSavedFacilitySummary(saved);
 }
 async function deleteSpot(id){if(!isAdmin){openAdminLogin();return}let s=db.spots.find(x=>String(x.id)===String(id));if(!s||!confirm(`${s.name} を施設マスタから削除しますか？`))return;let{error}=await sb.from('facilities').delete().eq('id',id);if(error){console.error(error);alert('削除できませんでした。');return}await loadFacilities()}
 function openAdminLogin(){if(currentAdminUser)adminEmail.value=currentAdminUser.email||'';adminLoginMessage.textContent=isAdmin?'管理者としてログイン中です。施設情報を編集できます。':'ログイン後、管理者登録されているユーザーだけが施設を編集できます。';openModal('adminModal')}
