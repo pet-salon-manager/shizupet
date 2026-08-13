@@ -8,7 +8,7 @@
 </style></head><body><div class="app"><header class="hero"><h1>🐾 しずペットマップ</h1><p>静岡県のペット関連施設を、現在地からすぐ探せます。</p></header><section class="section"><div class="mapCard"><div class="mapHead"><h2>🗺️ 近くのペット施設</h2><button class="btn secondary" onclick="locateMe(false)">◎ 現在地</button></div><div id="map"></div></div><div style="height:14px"></div><button id="addFacilityBtn" class="btn adminAdd" style="margin-bottom:12px" onclick="adminTopAction()">🔐 管理者ログイン</button>
   <input id="search" class="search" placeholder="施設名・市町・カテゴリで検索" oninput="renderSpots()"><div id="typeFilters" class="filters"></div><div id="count" class="count"></div><div id="spotList" class="list"></div><div class="adminBox"><div class="adminRow"><div><strong id="adminStatus">管理者：未ログイン</strong><div class="muted">施設情報の追加・編集・削除は管理者のみ</div></div><button id="adminBtn" class="btn secondary" onclick="openAdmin()">ログイン</button></div></div></section></div>
 <div id="adminModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>管理者ログイン</h2><button onclick="closeModal('adminModal')">✕</button></div><form class="form" onsubmit="adminLogin(event)"><input id="adminEmail" type="email" placeholder="メールアドレス" required><input id="adminPassword" type="password" placeholder="パスワード" required><button class="btn">ログイン</button></form></div></div>
-<div id="facilityModal" class="modal"><div class="sheet"><div class="sheetHead"><h2 id="facilityTitle">施設情報を編集</h2><button onclick="closeModal('facilityModal')">✕</button></div><form class="form" onsubmit="saveFacility(event)"><input id="facilityId" type="hidden"><input id="facilityName" placeholder="施設名" required><select id="facilityArea"><option>東部</option><option>中部</option><option>西部</option><option>伊豆</option></select><input id="facilityCity" placeholder="市町"><input id="facilityAddress" placeholder="住所"><select id="facilityType"><option>動物病院</option><option>トリミング</option><option>ペット用品</option><option>ドッグラン</option><option>ペット同伴</option><option>宿泊</option><option>その他</option></select><input id="facilityUrl" type="url" placeholder="公式ホームページURL"><input id="facilityPhone" type="tel" placeholder="電話番号"><input id="facilityLat" type="number" step="any" placeholder="緯度"><input id="facilityLng" type="number" step="any" placeholder="経度"><label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
+<div id="facilityModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>施設情報を編集</h2><button onclick="closeModal('facilityModal')">✕</button></div><form class="form" onsubmit="saveFacility(event)"><input id="facilityId" type="hidden"><input id="facilityName" placeholder="施設名" required><select id="facilityArea"><option>東部</option><option>中部</option><option>西部</option><option>伊豆</option></select><input id="facilityCity" placeholder="市町"><input id="facilityAddress" placeholder="住所"><select id="facilityType"><option>動物病院</option><option>トリミング</option><option>ペット用品</option><option>ドッグラン</option><option>ペット同伴</option><option>宿泊</option><option>その他</option></select><input id="facilityUrl" type="url" placeholder="公式ホームページURL"><input id="facilityPhone" type="tel" placeholder="電話番号"><input id="facilityLat" type="number" step="any" placeholder="緯度"><input id="facilityLng" type="number" step="any" placeholder="経度"><label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
       <input id="facilityRecommended" type="checkbox" style="width:22px;height:22px">
       <span>⭐ おすすめのお店に設定する</span>
     </label>
@@ -121,6 +121,48 @@ function editFacility(id){
   closeModal('facilityModal');
   await loadFacilities();
   alert(editing?'施設情報を更新しました':'新しい施設を追加しました');
-}async function deleteFacility(id){if(!isAdmin)return;let s=spots.find(x=>String(x.id)===String(id));if(!s||!confirm(`「${s.name}」を削除しますか？`))return;let {error}=await sb.from('facilities').update({is_active:false}).eq('id',id);if(error)return alert('削除できませんでした');await loadFacilities()}
+}async function deleteFacility(id){
+  if(!isAdmin){
+    alert('管理者ログインが必要です');
+    return;
+  }
+
+  const s=spots.find(x=>String(x.id)===String(id));
+  if(!s)return;
+
+  if(!confirm(`「${s.name}」を削除しますか？`))return;
+
+  const {data,error}=await sb
+    .from('facilities')
+    .update({is_active:false})
+    .eq('id',id)
+    .select('id,is_active')
+    .maybeSingle();
+
+  if(error){
+    console.error('施設削除エラー',error);
+    alert('削除できませんでした。\n\nSupabaseの管理者更新権限を確認してください。');
+    return;
+  }
+
+  if(!data || data.is_active!==false){
+    alert('削除処理がSupabaseに反映されませんでした。\n管理者用のUPDATEポリシーを設定してください。');
+    return;
+  }
+
+  // 画面から即時削除
+  spots=spots.filter(x=>String(x.id)!==String(id));
+  renderSpots();
+
+  // Supabaseから最終確認
+  await loadFacilities();
+
+  if(spots.some(x=>String(x.id)===String(id))){
+    alert('削除後に施設が再表示されました。Supabaseのis_active設定を確認してください。');
+    return;
+  }
+
+  alert(`「${s.name}」を削除しました`);
+}
 async function init(){setupFilters();initMap();let {data}=await sb.auth.getSession();if(data.session){let {data:ok}=await sb.rpc('is_app_admin');isAdmin=!!ok}refreshAdmin();await loadFacilities();locateMe(true)}init();
 </script></body></html>
