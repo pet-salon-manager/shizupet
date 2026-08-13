@@ -132,12 +132,14 @@ function editFacility(id){
 
   if(!confirm(`「${s.name}」を削除しますか？`))return;
 
-  const {data,error}=await sb
+  // 削除は is_active=false にする。
+  // ここでは select() を付けない。
+  // 削除直後の行は一般SELECTポリシーから見えなくなるため、
+  // select() で確認すると「削除失敗」と誤判定するため。
+  const {error}=await sb
     .from('facilities')
     .update({is_active:false})
-    .eq('id',id)
-    .select('id,is_active')
-    .maybeSingle();
+    .eq('id',id);
 
   if(error){
     console.error('施設削除エラー',error);
@@ -145,20 +147,15 @@ function editFacility(id){
     return;
   }
 
-  if(!data || data.is_active!==false){
-    alert('削除処理がSupabaseに反映されませんでした。\n管理者用のUPDATEポリシーを設定してください。');
-    return;
-  }
-
-  // 画面から即時削除
+  // 画面から即時除去
   spots=spots.filter(x=>String(x.id)!==String(id));
   renderSpots();
 
-  // Supabaseから最終確認
+  // 公開一覧を再取得。削除済みは表示されない。
   await loadFacilities();
 
   if(spots.some(x=>String(x.id)===String(id))){
-    alert('削除後に施設が再表示されました。Supabaseのis_active設定を確認してください。');
+    alert('削除処理が反映されませんでした。\nSupabaseのUPDATEポリシーを確認してください。');
     return;
   }
 
