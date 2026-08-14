@@ -15,7 +15,7 @@
 .snsBtn{width:46px;height:52px;border:1px solid var(--line);border-radius:15px;background:white;font-weight:900;font-size:20px;display:grid;place-items:center;box-shadow:0 8px 18px rgba(40,30,20,.06)}
 .snsBtn.fb{color:#1877F2}
 .snsBtn.x{color:#111}.snsBtn.yt{color:#d00;font-size:18px}
-</style></head><body><div class="app"><header class="hero"><h1>🐾 しずペットマップ</h1><p>静岡県のペット関連施設を、現在地からすぐ探せます。</p></header><section class="section"><div class="mapCard"><div class="mapHead"><h2>🗺️ 近くのペット施設</h2><button class="btn secondary" onclick="locateMe(false)">◎ 現在地</button></div><div id="map"></div></div><div style="height:14px"></div><button id="addFacilityBtn" class="btn adminAdd" style="margin-bottom:12px" onclick="adminTopAction()">🔐 管理者ログイン</button>
+</style></head><body><div class="app"><header class="hero"><h1>🐾 しずペットマップ</h1><p>静岡県のペット関連施設を、現在地からすぐ探せます。</p></header><section class="section"><div class="mapCard"><div class="mapHead"><h2>🗺️ 近くのペット施設</h2><button class="btn secondary" onclick="locateMe(false)">◎ 現在地</button></div><div id="map"></div><div id="mapPinCount" class="muted" style="padding:8px 4px 0">地図ピンを読み込み中…</div></div><div style="height:14px"></div><button id="addFacilityBtn" class="btn adminAdd" style="margin-bottom:12px" onclick="adminTopAction()">🔐 管理者ログイン</button>
   <div class="searchRow">
   <input id="search" class="search" placeholder="施設名・市町・カテゴリで検索" oninput="renderSpots()">
   <button type="button" class="snsBtn fb" onclick="openFacebookSearch()" aria-label="Facebookで検索">f</button>
@@ -56,6 +56,69 @@ const SHIZUOKA_CITY_CENTERS={
 };
 
 
+
+function hasValidStoredCoordinates(s){
+  const rawLat=s?.lat;
+  const rawLng=s?.lng;
+  if(rawLat===null||rawLat===undefined||String(rawLat).trim()==='')return false;
+  if(rawLng===null||rawLng===undefined||String(rawLng).trim()==='')return false;
+
+  const lat=Number(rawLat),lng=Number(rawLng);
+  return Number.isFinite(lat) &&
+         Number.isFinite(lng) &&
+         lat>=34.4 && lat<=35.7 &&
+         lng>=137.3 && lng<=139.3;
+}
+
+async function repairMissingFacilityCoordinates(){
+  if(!spots?.length)return;
+
+  const targets=spots.filter(s =>
+    s.is_active!==false &&
+    !hasValidStoredCoordinates(s) &&
+    (String(s.address||'').trim() || String(s.city||'').trim())
+  );
+
+  if(!targets.length)return;
+
+  let changed=false;
+
+  // Nominatimへの負荷を避けるため順番に処理
+  for(const s of targets){
+    const pos=await geocodeAddress(
+      String(s.address||'').trim(),
+      String(s.city||'').trim()
+    );
+
+    if(pos){
+      s.lat=pos[0];
+      s.lng=pos[1];
+      changed=true;
+
+      // 管理者ログイン中ならSupabaseにも保存
+      if(isAdmin){
+        try{
+          const {error}=await sb
+            .from('facilities')
+            .update({lat:pos[0],lng:pos[1]})
+            .eq('id',s.id);
+          if(error)console.warn('座標保存失敗',s.id,error);
+        }catch(e){
+          console.warn('座標保存例外',s.id,e);
+        }
+      }
+    }
+
+    // 公開ジオコーディングへの連続アクセスを避ける
+    await new Promise(r=>setTimeout(r,1100));
+  }
+
+  if(changed){
+    renderMap();
+    renderSpots();
+  }
+}
+
 function fallbackOffsetForFacility(s){
   const base=fallbackCityPosition(s?.city);
   if(!base)return null;
@@ -80,23 +143,48 @@ function fallbackCityPosition(city){
 }
 
 async function geocodeAddress(address,city){
-  const query=[address,city,'静岡県','日本'].filter(Boolean).join(' ');
-  if(!query.trim())return null;
-  try{
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),7000);
-    const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=jp&q='+encodeURIComponent(query);
-    const res=await fetch(url,{signal:controller.signal,headers:{'Accept':'application/json','Accept-Language':'ja'}});
-    clearTimeout(timer);
-    if(!res.ok)return null;
-    const rows=await res.json();
-    if(!rows?.length)return null;
-    const lat=Number(rows[0].lat),lng=Number(rows[0].lon);
-    return Number.isFinite(lat)&&Number.isFinite(lng)?[lat,lng]:null;
-  }catch(e){
-    console.warn('住所検索失敗',e);
-    return null;
+  const candidates=[
+    [address,city,'静岡県','日本'].filter(Boolean).join(' '),
+    [address,'静岡県','日本'].filter(Boolean).join(' '),
+    [city,'静岡県','日本'].filter(Boolean).join(' ')
+  ].filter((v,i,a)=>v && a.indexOf(v)===i);
+
+  for(const query of candidates){
+    try{
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),7000);
+      const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=jp&q='+encodeURIComponent(query);
+      const res=await fetch(url,{
+        signal:controller.signal,
+        headers:{
+          'Accept':'application/json',
+          'Accept-Language':'ja'
+        }
+      });
+      clearTimeout(timer);
+
+      if(!res.ok)continue;
+
+      const rows=await res.json();
+      if(!rows?.length)continue;
+
+      const lat=Number(rows[0].lat);
+      const lng=Number(rows[0].lon);
+
+      // 静岡県周辺だけ採用
+      if(
+        Number.isFinite(lat) &&
+        Number.isFinite(lng) &&
+        lat>=34.4 && lat<=35.7 &&
+        lng>=137.3 && lng<=139.3
+      ){
+        return [lat,lng];
+      }
+    }catch(e){
+      console.warn('住所検索失敗',query,e);
+    }
   }
+  return null;
 }
 
 async function fillCoordinatesFromAddress(){
@@ -119,9 +207,8 @@ async function fillCoordinatesFromAddress(){
 }
 
 function getPos(s){
-  const lat=Number(s?.lat),lng=Number(s?.lng);
-  if(Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180){
-    return [lat,lng];
+  if(hasValidStoredCoordinates(s)){
+    return [Number(s.lat),Number(s.lng)];
   }
   return fallbackOffsetForFacility(s);
 }function renderMap(){
@@ -130,12 +217,14 @@ function getPos(s){
   window.facilityMarkerById={};
 
   const mapSpots=spots.filter(s=>s.is_active!==false);
+  let plotted=0;
 
   for(const s of mapSpots){
     const p=getPos(s);
     if(!p)continue;
 
     const marker=L.marker(p).addTo(layer);
+    plotted++;
     window.facilityMarkerById[String(s.id)]=marker;
 
     const address=s.address?`<div style="margin-top:4px">📍 ${esc(s.address)}</div>`:'';
@@ -159,6 +248,9 @@ function getPos(s){
       fillOpacity:1
     }).addTo(layer).bindPopup('現在地');
   }
+
+  const pc=document.getElementById('mapPinCount');
+  if(pc)pc.textContent=`📍 地図ピン ${plotted}件 / 登録施設 ${mapSpots.length}件`;
 }
 function locateMe(silent=false){if(!navigator.geolocation){if(!silent)alert('現在地を取得できません');return}navigator.geolocation.getCurrentPosition(pos=>{currentPos=[pos.coords.latitude,pos.coords.longitude];if(currentMarker)currentMarker.remove();let icon=L.divIcon({className:'',html:'<div class="currentDot"></div>',iconSize:[18,18],iconAnchor:[9,9]});currentMarker=L.marker(currentPos,{icon}).addTo(map).bindPopup('現在地');map.setView(currentPos,12);renderSpots()},()=>{if(!silent)alert('位置情報を許可してください')},{enableHighAccuracy:true,timeout:8000,maximumAge:120000})}
 function distanceKm(a,b){if(!a||!b)return null;let R=6371,toRad=x=>x*Math.PI/180,dLat=toRad(b[0]-a[0]),dLon=toRad(b[1]-a[1]),x=Math.sin(dLat/2)**2+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}function toggleRecommendedFilter(){
@@ -216,15 +308,21 @@ function filtered(){
 function renderSpots(){let xs=filtered();count.textContent=`${xs.length}件`;spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot ${s.recommended?'recoCard':''}"><div class="spotTop"><div class="icon">${iconFor(s.type)}</div><div style="flex:1">${s.recommended?'<span class="recoBadge">⭐ おすすめ</span>':''}<h3>${esc(s.name)}</h3><div class="muted">${esc(s.city||'静岡県')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s._d!=null?`<div class="tag">現在地から直線距離 約${s._d.toFixed(s._d<10?1:0)}km</div>`:''}<div class="actions">${s.url?`<button onclick="window.open('${safeUrl(s.url)}','_blank')">🌐 公式HP</button>`:''}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">☎️ 電話</button>`:''}<button class="primary" onclick="routeTo('${s.id}')">🧭 経路</button>${isAdmin?`<button class="recommend" onclick="toggleRecommended('${s.id}')">${s.recommended?'⭐ おすすめ解除':'☆ おすすめ指定'}</button><button onclick="editFacility('${s.id}')">✏️ 編集</button><button class="danger" onclick="deleteFacility('${s.id}')">削除</button>`:''}</div></div></div></div>`).join(''):'<div class="card empty">条件に合う施設がありません</div>';renderMap()}
 async function loadFacilities(){
   let {data,error}=await sb.from('facilities').select('*').order('name');
+
   if(error){
     console.error(error);
     count.textContent='0件';
     spotList.innerHTML='<div class="card empty">施設情報を読み込めませんでした</div>';
-    return
+    return;
   }
+
   spots=(data||[]).filter(s=>s.is_active!==false);
+
   renderSpots();
   renderMap();
+
+  // 座標がない既存施設は、住所からバックグラウンドで位置を補完
+  repairMissingFacilityCoordinates();
 }function routeTo(id){let s=spots.find(x=>String(x.id)===String(id));if(!s)return;let p=getPos(s),destination=s.address?encodeURIComponent(s.address):(p?`${p[0]},${p[1]}`:'');if(!destination)return alert('位置情報がありません');let open=o=>location.href=`https://maps.apple.com/?saddr=${o[0]},${o[1]}&daddr=${destination}&dirflg=d`;if(currentPos)open(currentPos);else navigator.geolocation.getCurrentPosition(pos=>open([pos.coords.latitude,pos.coords.longitude]),()=>alert('現在地を取得できません'))}
 function adminTopAction(){
   if(isAdmin){newFacility();}else{openAdmin();}
@@ -301,24 +399,27 @@ async function saveFacility(e){
   const editing=!!facilityId.value.trim();
   let id=facilityId.value.trim();
 
-  // Always try to recalculate from current address/city.
+  // 住所がある場合は住所から正確な座標を取り直す
+  let resolvedPos=null;
   if(facilityAddress.value.trim() || facilityCity.value.trim()){
-    const pos=await geocodeAddress(
+    resolvedPos=await geocodeAddress(
       facilityAddress.value.trim(),
       facilityCity.value.trim()
     );
+  }
 
-    if(pos){
-      facilityLat.value=pos[0];
-      facilityLng.value=pos[1];
+  if(resolvedPos){
+    facilityLat.value=resolvedPos[0];
+    facilityLng.value=resolvedPos[1];
+    const gs=document.getElementById('geocodeStatus');
+    if(gs)gs.textContent='住所から地図位置を取得しました';
+  }else{
+    const fallback=fallbackCityPosition(facilityCity.value);
+    if(fallback && (facilityLat.value==='' || facilityLng.value==='')){
+      facilityLat.value=fallback[0];
+      facilityLng.value=fallback[1];
       const gs=document.getElementById('geocodeStatus');
-      if(gs)gs.textContent='住所から地図位置を取得しました';
-    }else{
-      // Keep lat/lng empty so getPos() can use offset city fallback.
-      facilityLat.value='';
-      facilityLng.value='';
-      const gs=document.getElementById('geocodeStatus');
-      if(gs)gs.textContent='住所を特定できないため、市町の概略位置に表示します';
+      if(gs)gs.textContent='住所を特定できないため、市町の概略位置を設定しました';
     }
   }
 
@@ -354,7 +455,6 @@ async function saveFacility(e){
 
   const saved=result.data;
 
-  // Put the saved facility into the local map immediately.
   const existingIndex=spots.findIndex(x=>String(x.id)===String(saved.id));
   if(existingIndex>=0)spots[existingIndex]=saved;
   else spots.unshift(saved);
@@ -363,7 +463,6 @@ async function saveFacility(e){
   renderSpots();
   renderMap();
 
-  // Focus the saved/new marker immediately and open its popup.
   const savedPos=getPos(saved);
   if(savedPos&&map){
     map.setView(savedPos,15,{animate:true});
@@ -373,20 +472,11 @@ async function saveFacility(e){
     },350);
   }
 
-  // Final sync from Supabase, then focus again.
   await loadFacilities();
-  renderMap();
-  if(savedPos&&map){
-    map.setView(savedPos,15,{animate:true});
-    setTimeout(()=>{
-      const mk=window.facilityMarkerById?.[String(saved.id)];
-      if(mk)mk.openPopup();
-    },350);
-  }
 
   alert(editing
-    ? '施設情報を更新しました。地図のピンも更新しました'
-    : '新しい施設を追加しました。新しいピンを地図に表示しました');
+    ? '施設情報を更新しました。住所から地図位置も更新しました'
+    : '新しい施設を追加しました。住所から地図ピンを設定しました');
 }async function deleteFacility(id){
   if(!isAdmin){
     alert('管理者ログインが必要です');
