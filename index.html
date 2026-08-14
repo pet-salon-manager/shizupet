@@ -134,23 +134,37 @@ async function toggleRecommended(id){
 }
 
 function editFacility(id){
-  let s=spots.find(x=>String(x.id)===String(id));if(!s)return;
-  facilityTitle.textContent='施設情報を編集';
-  facilityId.value=s.id;
-  facilityName.value=s.name||'';
-  facilityArea.value=s.area||'東部';
-  facilityCity.value=s.city||'';
-  facilityAddress.value=s.address||'';
-  facilityType.value=s.type||'その他';
-  facilityUrl.value=s.url||'';
-  facilityPhone.value=s.phone||'';
-  facilityLat.value=s.lat??'';
-  facilityLng.value=s.lng??'';
-  facilityRecommended.checked=!!s.recommended;
-  openModal('facilityModal')
-}async function saveFacility(e){
+  const s=spots.find(x=>String(x.id)===String(id));
+  if(!s){alert('施設情報を取得できませんでした');return;}
+  const byId=(id)=>document.getElementById(id);
+  byId('facilityTitle').textContent='施設情報を編集';
+  byId('facilityId').value=s.id??'';
+  byId('facilityName').value=s.name||'';
+  byId('facilityArea').value=s.area||'東部';
+  byId('facilityCity').value=s.city||'';
+  byId('facilityAddress').value=s.address||'';
+  byId('facilityType').value=s.type||'その他';
+  byId('facilityUrl').value=s.url||'';
+  byId('facilityPhone').value=s.phone||'';
+  byId('facilityLat').value=s.lat??'';
+  byId('facilityLng').value=s.lng??'';
+  byId('facilityRecommended').checked=!!s.recommended;
+  openModal('facilityModal');
+}
+async function saveFacility(e){
   e.preventDefault();
   if(!isAdmin){alert('管理者ログインが必要です');return}
+  const facilityId=document.getElementById('facilityId');
+  const facilityName=document.getElementById('facilityName');
+  const facilityArea=document.getElementById('facilityArea');
+  const facilityCity=document.getElementById('facilityCity');
+  const facilityAddress=document.getElementById('facilityAddress');
+  const facilityType=document.getElementById('facilityType');
+  const facilityUrl=document.getElementById('facilityUrl');
+  const facilityPhone=document.getElementById('facilityPhone');
+  const facilityLat=document.getElementById('facilityLat');
+  const facilityLng=document.getElementById('facilityLng');
+  const facilityRecommended=document.getElementById('facilityRecommended');
 
   const editing=!!facilityId.value.trim();
   let id=facilityId.value.trim();
