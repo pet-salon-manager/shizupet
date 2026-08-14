@@ -108,7 +108,40 @@ function getPos(s){
     return [lat,lng];
   }
   return fallbackCityPosition(s?.city);
-}function renderMap(){if(!map||!layer)return;layer.clearLayers();filtered().forEach(s=>{let p=getPos(s);if(!p)return;let m=L.marker(p).addTo(layer);m.bindPopup(`<strong>${esc(s.name)}</strong><br>${esc(s.city||'静岡県')}・${esc(s.type)}<br><button onclick="routeTo('${s.id}')">現在地から行く</button>`)})}
+}function renderMap(){
+  if(!map||!layer)return;
+  layer.clearLayers();
+
+  // 一覧の検索・カテゴリ絞り込みに関係なく、登録中の全施設を地図に表示
+  const mapSpots=spots.filter(s=>s.is_active!==false);
+
+  for(const s of mapSpots){
+    const p=getPos(s);
+    if(!p)continue;
+
+    const marker=L.marker(p).addTo(layer);
+    const address=s.address?`<div style="margin-top:4px">📍 ${esc(s.address)}</div>`:'';
+    marker.bindPopup(`
+      <div style="min-width:180px">
+        <strong>${esc(s.name)}</strong>
+        <div>${esc(s.city||'静岡県')} ｜ ${esc(s.type||'その他')}</div>
+        ${address}
+        <div style="margin-top:8px">
+          <button onclick="routeTo('${s.id}')" style="padding:7px 10px;border:0;border-radius:9px;background:#0d3b32;color:#fff">🧭 経路</button>
+        </div>
+      </div>
+    `);
+  }
+
+  if(currentPos){
+    currentMarker=L.circleMarker(currentPos,{
+      radius:8,
+      weight:4,
+      opacity:1,
+      fillOpacity:1
+    }).addTo(layer).bindPopup('現在地');
+  }
+}
 function locateMe(silent=false){if(!navigator.geolocation){if(!silent)alert('現在地を取得できません');return}navigator.geolocation.getCurrentPosition(pos=>{currentPos=[pos.coords.latitude,pos.coords.longitude];if(currentMarker)currentMarker.remove();let icon=L.divIcon({className:'',html:'<div class="currentDot"></div>',iconSize:[18,18],iconAnchor:[9,9]});currentMarker=L.marker(currentPos,{icon}).addTo(map).bindPopup('現在地');map.setView(currentPos,12);renderSpots()},()=>{if(!silent)alert('位置情報を許可してください')},{enableHighAccuracy:true,timeout:8000,maximumAge:120000})}
 function distanceKm(a,b){if(!a||!b)return null;let R=6371,toRad=x=>x*Math.PI/180,dLat=toRad(b[0]-a[0]),dLon=toRad(b[1]-a[1]),x=Math.sin(dLat/2)**2+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}function toggleRecommendedFilter(){
   recommendedOnly=!recommendedOnly;
@@ -172,7 +205,8 @@ async function loadFacilities(){
     return
   }
   spots=(data||[]).filter(s=>s.is_active!==false);
-  renderSpots()
+  renderSpots();
+  renderMap();
 }function routeTo(id){let s=spots.find(x=>String(x.id)===String(id));if(!s)return;let p=getPos(s),destination=s.address?encodeURIComponent(s.address):(p?`${p[0]},${p[1]}`:'');if(!destination)return alert('位置情報がありません');let open=o=>location.href=`https://maps.apple.com/?saddr=${o[0]},${o[1]}&daddr=${destination}&dirflg=d`;if(currentPos)open(currentPos);else navigator.geolocation.getCurrentPosition(pos=>open([pos.coords.latitude,pos.coords.longitude]),()=>alert('現在地を取得できません'))}
 function adminTopAction(){
   if(isAdmin){newFacility();}else{openAdmin();}
@@ -249,14 +283,26 @@ async function saveFacility(e){
   const editing=!!facilityId.value.trim();
   let id=facilityId.value.trim();
 
-  if(facilityLat.value==='' || facilityLng.value===''){
-    await fillCoordinatesFromAddress();
-  }
-  if(facilityLat.value==='' || facilityLng.value===''){
-    const fallback=fallbackCityPosition(facilityCity.value);
-    if(fallback){
-      facilityLat.value=fallback[0];
-      facilityLng.value=fallback[1];
+  // 住所または市町がある場合は、編集後の内容から地図位置を取り直す
+  if(facilityAddress.value.trim() || facilityCity.value.trim()){
+    const pos=await geocodeAddress(
+      facilityAddress.value.trim(),
+      facilityCity.value.trim()
+    );
+
+    if(pos){
+      facilityLat.value=pos[0];
+      facilityLng.value=pos[1];
+      const gs=document.getElementById('geocodeStatus');
+      if(gs)gs.textContent='編集後の住所から地図位置を更新しました';
+    }else{
+      const fallback=fallbackCityPosition(facilityCity.value);
+      if(fallback){
+        facilityLat.value=fallback[0];
+        facilityLng.value=fallback[1];
+        const gs=document.getElementById('geocodeStatus');
+        if(gs)gs.textContent='市町の概略位置を設定しました';
+      }
     }
   }
 
@@ -287,15 +333,20 @@ async function saveFacility(e){
   if(result.error){
     console.error(result.error);
     alert('保存できませんでした。Supabaseの権限設定を確認してください。');
-    return
+    return;
   }
 
   closeModal('facilityModal');
   await loadFacilities();
+
+  // 保存した施設の位置へ地図を移動
   const pos=getPos(result.data);
   if(pos&&map)map.setView(pos,14);
+
   renderMap();
-  alert(editing?'施設情報を更新しました':'新しい施設を追加しました。地図にも表示しました');
+  alert(editing
+    ? '施設情報を更新しました。地図のピンも更新しました'
+    : '新しい施設を追加しました。地図にも表示しました');
 }async function deleteFacility(id){
   if(!isAdmin){
     alert('管理者ログインが必要です');
