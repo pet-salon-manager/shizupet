@@ -122,12 +122,26 @@ async function repairMissingFacilityCoordinates(){
 function fallbackOffsetForFacility(s){
   const base=fallbackCityPosition(s?.city);
   if(!base)return null;
-  const key=String(s?.id||s?.name||s?.address||'facility');
-  let h=0;
-  for(let i=0;i<key.length;i++)h=((h<<5)-h)+key.charCodeAt(i),h|=0;
-  const angle=(Math.abs(h)%360)*Math.PI/180;
-  const ring=1+(Math.abs(h>>8)%4);
-  const radius=0.0022*ring; // roughly 200–900m
+
+  const key=[
+    String(s?.address||''),
+    String(s?.name||''),
+    String(s?.id||'')
+  ].join('|');
+
+  let h1=2166136261;
+  let h2=16777619;
+  for(let i=0;i<key.length;i++){
+    h1^=key.charCodeAt(i);
+    h1=Math.imul(h1,16777619);
+    h2=((h2<<5)-h2)+key.charCodeAt(i);
+    h2|=0;
+  }
+
+  const angle=(Math.abs(h1)%360)*Math.PI/180;
+  const ring=2+(Math.abs(h2)%7);
+  const radius=0.0016*ring; // ~300m–1.3km
+
   return [
     base[0]+Math.sin(angle)*radius,
     base[1]+Math.cos(angle)*radius
@@ -305,7 +319,7 @@ function filtered(){
 
   return xs;
 }function setupFilters(){typeFilters.innerHTML=types.map(t=>`<button class="${activeType===t?'active':''}" onclick="activeType='${t}';setupFilters();renderSpots()">${t}</button>`).join('')}
-function renderSpots(){let xs=filtered();count.textContent=`${xs.length}件`;spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot ${s.recommended?'recoCard':''}"><div class="spotTop"><div class="icon">${iconFor(s.type)}</div><div style="flex:1">${s.recommended?'<span class="recoBadge">⭐ おすすめ</span>':''}<h3>${esc(s.name)}</h3><div class="muted">${esc(s.city||'静岡県')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s._d!=null?`<div class="tag">現在地から直線距離 約${s._d.toFixed(s._d<10?1:0)}km</div>`:''}<div class="actions">${s.url?`<button onclick="window.open('${safeUrl(s.url)}','_blank')">🌐 公式HP</button>`:''}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">☎️ 電話</button>`:''}<button class="primary" onclick="routeTo('${s.id}')">🧭 経路</button>${isAdmin?`<button class="recommend" onclick="toggleRecommended('${s.id}')">${s.recommended?'⭐ おすすめ解除':'☆ おすすめ指定'}</button><button onclick="editFacility('${s.id}')">✏️ 編集</button><button class="danger" onclick="deleteFacility('${s.id}')">削除</button>`:''}</div></div></div></div>`).join(''):'<div class="card empty">条件に合う施設がありません</div>';renderMap()}
+function renderSpots(){let xs=filtered();count.textContent=`${xs.length}件`;spotList.innerHTML=xs.length?xs.map(s=>`<div class="card spot ${s.recommended?'recoCard':''}"><div class="spotTop"><div class="icon">${iconFor(s.type)}</div><div style="flex:1">${s.recommended?'<span class="recoBadge">⭐ おすすめ</span>':''}<h3>${esc(s.name)}</h3><div class="muted">${esc(s.city||'静岡県')} ｜ ${esc(s.type)}</div>${s.address?`<div class="tag">📍 ${esc(s.address)}</div>`:''}${s._d!=null?`<div class="tag">現在地から直線距離 約${s._d.toFixed(s._d<10?1:0)}km</div>`:''}<div class="actions">${s.url?`<button onclick="window.open('${safeUrl(s.url)}','_blank')">🌐 公式HP</button>`:''}${s.phone?`<button onclick="location.href='tel:${esc(s.phone)}'">☎️ 電話</button>`:''}<button class="primary" onclick="routeTo('${s.id}')">🧭 経路</button><button onclick="focusFacilityOnMap('${s.id}')">📍 地図で見る</button>${isAdmin?`<button class="recommend" onclick="toggleRecommended('${s.id}')">${s.recommended?'⭐ おすすめ解除':'☆ おすすめ指定'}</button><button onclick="editFacility('${s.id}')">✏️ 編集</button><button class="danger" onclick="deleteFacility('${s.id}')">削除</button>`:''}</div></div></div></div>`).join(''):'<div class="card empty">条件に合う施設がありません</div>';renderMap()}
 async function loadFacilities(){
   let {data,error}=await sb.from('facilities').select('*').order('name');
 
@@ -323,7 +337,28 @@ async function loadFacilities(){
 
   // 座標がない既存施設は、住所からバックグラウンドで位置を補完
   repairMissingFacilityCoordinates();
-}function routeTo(id){let s=spots.find(x=>String(x.id)===String(id));if(!s)return;let p=getPos(s),destination=s.address?encodeURIComponent(s.address):(p?`${p[0]},${p[1]}`:'');if(!destination)return alert('位置情報がありません');let open=o=>location.href=`https://maps.apple.com/?saddr=${o[0]},${o[1]}&daddr=${destination}&dirflg=d`;if(currentPos)open(currentPos);else navigator.geolocation.getCurrentPosition(pos=>open([pos.coords.latitude,pos.coords.longitude]),()=>alert('現在地を取得できません'))}
+}
+function focusFacilityOnMap(id){
+  const s=spots.find(x=>String(x.id)===String(id));
+  if(!s){alert('施設情報を取得できませんでした');return;}
+
+  const p=getPos(s);
+  if(!p){alert('この施設の地図位置を取得できませんでした');return;}
+
+  if(map){
+    map.setView(p,15,{animate:true});
+    renderMap();
+
+    setTimeout(()=>{
+      const mk=window.facilityMarkerById?.[String(s.id)];
+      if(mk)mk.openPopup();
+      const mapEl=document.getElementById('map');
+      if(mapEl)mapEl.scrollIntoView({behavior:'smooth',block:'center'});
+    },350);
+  }
+}
+
+function routeTo(id){let s=spots.find(x=>String(x.id)===String(id));if(!s)return;let p=getPos(s),destination=s.address?encodeURIComponent(s.address):(p?`${p[0]},${p[1]}`:'');if(!destination)return alert('位置情報がありません');let open=o=>location.href=`https://maps.apple.com/?saddr=${o[0]},${o[1]}&daddr=${destination}&dirflg=d`;if(currentPos)open(currentPos);else navigator.geolocation.getCurrentPosition(pos=>open([pos.coords.latitude,pos.coords.longitude]),()=>alert('現在地を取得できません'))}
 function adminTopAction(){
   if(isAdmin){newFacility();}else{openAdmin();}
 }
