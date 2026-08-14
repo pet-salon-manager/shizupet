@@ -24,7 +24,9 @@
 </div><button id="recommendedFilterBtn" class="recommendedFilter" type="button" onclick="toggleRecommendedFilter()">⭐ おすすめ店舗だけ表示</button>
   <div id="typeFilters" class="filters"></div><div id="count" class="count"></div><div id="spotList" class="list"></div><div class="adminBox"><div class="adminRow"><div><strong id="adminStatus">管理者：未ログイン</strong><div class="muted">施設情報の追加・編集・削除は管理者のみ</div></div><button id="adminBtn" class="btn secondary" onclick="openAdmin()">ログイン</button></div></div></section></div>
 <div id="adminModal" class="modal"><div class="sheet"><div class="sheetHead"><h2>管理者ログイン</h2><button onclick="closeModal('adminModal')">✕</button></div><form class="form" onsubmit="adminLogin(event)"><input id="adminEmail" type="email" placeholder="メールアドレス" required><input id="adminPassword" type="password" placeholder="パスワード" required><button class="btn">ログイン</button></form></div></div>
-<div id="facilityModal" class="modal"><div class="sheet"><div class="sheetHead"><h2 id="facilityTitle">施設情報を編集</h2><button onclick="closeModal('facilityModal')">✕</button></div><form class="form" onsubmit="saveFacility(event)"><input id="facilityId" type="hidden"><input id="facilityName" placeholder="施設名" required><select id="facilityArea"><option>東部</option><option>中部</option><option>西部</option><option>伊豆</option></select><input id="facilityCity" placeholder="市町"><input id="facilityAddress" placeholder="住所"><select id="facilityType"><option>動物病院</option><option>トリミング</option><option>ペット用品</option><option>ドッグラン</option><option>ペット同伴</option><option>宿泊</option><option>その他</option></select><input id="facilityUrl" type="url" placeholder="公式ホームページURL"><input id="facilityPhone" type="tel" placeholder="電話番号"><input id="facilityLat" type="number" step="any" placeholder="緯度"><input id="facilityLng" type="number" step="any" placeholder="経度"><label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
+<div id="facilityModal" class="modal"><div class="sheet"><div class="sheetHead"><h2 id="facilityTitle">施設情報を編集</h2><button onclick="closeModal('facilityModal')">✕</button></div><form class="form" onsubmit="saveFacility(event)"><input id="facilityId" type="hidden"><input id="facilityName" placeholder="施設名" required><select id="facilityArea"><option>東部</option><option>中部</option><option>西部</option><option>伊豆</option></select><input id="facilityCity" placeholder="市町"><input id="facilityAddress" placeholder="住所">
+<button type="button" class="btn secondary" style="margin-top:-4px" onclick="fillCoordinatesFromAddress()">📍 住所から地図位置を取得</button>
+<div id="geocodeStatus" class="muted" style="margin-top:-6px"></div><select id="facilityType"><option>動物病院</option><option>トリミング</option><option>ペット用品</option><option>ドッグラン</option><option>ペット同伴</option><option>宿泊</option><option>その他</option></select><input id="facilityUrl" type="url" placeholder="公式ホームページURL"><input id="facilityPhone" type="tel" placeholder="電話番号"><input id="facilityLat" type="number" step="any" placeholder="緯度"><input id="facilityLng" type="number" step="any" placeholder="経度"><label style="display:flex;align-items:center;gap:10px;padding:8px 2px;font-weight:700">
       <input id="facilityRecommended" type="checkbox" style="width:22px;height:22px">
       <span>⭐ おすすめのお店に設定する</span>
     </label>
@@ -39,7 +41,74 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
   const el=document.getElementById(id);
   if(el)el.classList.remove('open');
 }function iconFor(t){return t==='動物病院'?'🏥':t==='トリミング'?'✂️':t==='ペット用品'?'🛍️':t==='ドッグラン'?'🐕':t==='宿泊'?'🏨':'📍'}
-function initMap(){if(map||!window.L)return;map=L.map('map').setView([34.98,138.38],8);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);layer=L.layerGroup().addTo(map);setTimeout(()=>map.invalidateSize(),200)}function getPos(s){if(Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng)))return [Number(s.lat),Number(s.lng)];return null}function renderMap(){if(!map||!layer)return;layer.clearLayers();filtered().forEach(s=>{let p=getPos(s);if(!p)return;let m=L.marker(p).addTo(layer);m.bindPopup(`<strong>${esc(s.name)}</strong><br>${esc(s.city||'静岡県')}・${esc(s.type)}<br><button onclick="routeTo('${s.id}')">現在地から行く</button>`)})}
+function initMap(){if(map||!window.L)return;map=L.map('map').setView([34.98,138.38],8);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);layer=L.layerGroup().addTo(map);setTimeout(()=>map.invalidateSize(),200)}
+const SHIZUOKA_CITY_CENTERS={
+'静岡市':[34.9756,138.3828],'静岡市葵区':[34.9756,138.3828],'静岡市駿河区':[34.9608,138.4045],'静岡市清水区':[35.0158,138.4897],
+'浜松市':[34.7108,137.7261],'浜松市中央区':[34.7108,137.7261],'沼津市':[35.0956,138.8635],'三島市':[35.1184,138.9186],
+'富士市':[35.1613,138.6763],'富士宮市':[35.2221,138.6215],'焼津市':[34.8669,138.3231],'藤枝市':[34.8674,138.2570],
+'島田市':[34.8362,138.1760],'掛川市':[34.7687,138.0148],'袋井市':[34.7500,137.9247],'磐田市':[34.7179,137.8515],
+'御前崎市':[34.6378,138.1281],'牧之原市':[34.7400,138.2247],'菊川市':[34.7576,138.0846],'熱海市':[35.0959,139.0716],
+'伊東市':[34.9657,139.1019],'伊豆市':[34.9765,138.9468],'伊豆の国市':[35.0278,138.9286],'下田市':[34.6795,138.9453],
+'御殿場市':[35.3086,138.9345],'裾野市':[35.1739,138.9067],'湖西市':[34.7186,137.5317],'長泉町':[35.1378,138.8972],
+'清水町':[35.0994,138.9028],'函南町':[35.0880,138.9533],'小山町':[35.3605,138.9874],'吉田町':[34.7706,138.2518],
+'森町':[34.8355,137.9271],'東伊豆町':[34.7728,139.0413],'河津町':[34.7570,138.9876],'南伊豆町':[34.6511,138.8583],
+'松崎町':[34.7530,138.7788],'西伊豆町':[34.7718,138.7751]
+};
+
+function fallbackCityPosition(city){
+  const c=String(city||'').trim();
+  if(!c)return null;
+  if(SHIZUOKA_CITY_CENTERS[c])return SHIZUOKA_CITY_CENTERS[c];
+  const key=Object.keys(SHIZUOKA_CITY_CENTERS).find(k=>c.includes(k)||k.includes(c));
+  return key?SHIZUOKA_CITY_CENTERS[key]:null;
+}
+
+async function geocodeAddress(address,city){
+  const query=[address,city,'静岡県','日本'].filter(Boolean).join(' ');
+  if(!query.trim())return null;
+  try{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),7000);
+    const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=jp&q='+encodeURIComponent(query);
+    const res=await fetch(url,{signal:controller.signal,headers:{'Accept':'application/json','Accept-Language':'ja'}});
+    clearTimeout(timer);
+    if(!res.ok)return null;
+    const rows=await res.json();
+    if(!rows?.length)return null;
+    const lat=Number(rows[0].lat),lng=Number(rows[0].lon);
+    return Number.isFinite(lat)&&Number.isFinite(lng)?[lat,lng]:null;
+  }catch(e){
+    console.warn('住所検索失敗',e);
+    return null;
+  }
+}
+
+async function fillCoordinatesFromAddress(){
+  const address=document.getElementById('facilityAddress').value.trim();
+  const city=document.getElementById('facilityCity').value.trim();
+  const status=document.getElementById('geocodeStatus');
+  if(!address && !city){status.textContent='住所または市町を入力してください';return null;}
+  status.textContent='地図位置を取得中…';
+  let pos=await geocodeAddress(address,city);
+  if(!pos){
+    pos=fallbackCityPosition(city);
+    if(pos)status.textContent='市町の概略位置を設定しました';
+  }else{
+    status.textContent='住所から地図位置を取得しました';
+  }
+  if(!pos){status.textContent='地図位置を取得できませんでした';return null;}
+  document.getElementById('facilityLat').value=pos[0].toFixed(6);
+  document.getElementById('facilityLng').value=pos[1].toFixed(6);
+  return pos;
+}
+
+function getPos(s){
+  const lat=Number(s?.lat),lng=Number(s?.lng);
+  if(Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180){
+    return [lat,lng];
+  }
+  return fallbackCityPosition(s?.city);
+}function renderMap(){if(!map||!layer)return;layer.clearLayers();filtered().forEach(s=>{let p=getPos(s);if(!p)return;let m=L.marker(p).addTo(layer);m.bindPopup(`<strong>${esc(s.name)}</strong><br>${esc(s.city||'静岡県')}・${esc(s.type)}<br><button onclick="routeTo('${s.id}')">現在地から行く</button>`)})}
 function locateMe(silent=false){if(!navigator.geolocation){if(!silent)alert('現在地を取得できません');return}navigator.geolocation.getCurrentPosition(pos=>{currentPos=[pos.coords.latitude,pos.coords.longitude];if(currentMarker)currentMarker.remove();let icon=L.divIcon({className:'',html:'<div class="currentDot"></div>',iconSize:[18,18],iconAnchor:[9,9]});currentMarker=L.marker(currentPos,{icon}).addTo(map).bindPopup('現在地');map.setView(currentPos,12);renderSpots()},()=>{if(!silent)alert('位置情報を許可してください')},{enableHighAccuracy:true,timeout:8000,maximumAge:120000})}
 function distanceKm(a,b){if(!a||!b)return null;let R=6371,toRad=x=>x*Math.PI/180,dLat=toRad(b[0]-a[0]),dLon=toRad(b[1]-a[1]),x=Math.sin(dLat/2)**2+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}function toggleRecommendedFilter(){
   recommendedOnly=!recommendedOnly;
@@ -129,6 +198,7 @@ function newFacility(){
   byId('facilityLat').value='';
   byId('facilityLng').value='';
   byId('facilityRecommended').checked=false;
+  const gs=document.getElementById('geocodeStatus');if(gs)gs.textContent='';
   openModal('facilityModal');
 }
 
@@ -157,11 +227,13 @@ function editFacility(id){
   byId('facilityLat').value=s.lat??'';
   byId('facilityLng').value=s.lng??'';
   byId('facilityRecommended').checked=!!s.recommended;
+  const gs=document.getElementById('geocodeStatus');if(gs)gs.textContent='';
   openModal('facilityModal');
 }
 async function saveFacility(e){
   e.preventDefault();
   if(!isAdmin){alert('管理者ログインが必要です');return}
+
   const facilityId=document.getElementById('facilityId');
   const facilityName=document.getElementById('facilityName');
   const facilityArea=document.getElementById('facilityArea');
@@ -176,6 +248,17 @@ async function saveFacility(e){
 
   const editing=!!facilityId.value.trim();
   let id=facilityId.value.trim();
+
+  if(facilityLat.value==='' || facilityLng.value===''){
+    await fillCoordinatesFromAddress();
+  }
+  if(facilityLat.value==='' || facilityLng.value===''){
+    const fallback=fallbackCityPosition(facilityCity.value);
+    if(fallback){
+      facilityLat.value=fallback[0];
+      facilityLng.value=fallback[1];
+    }
+  }
 
   const row={
     name:facilityName.value.trim(),
@@ -209,7 +292,10 @@ async function saveFacility(e){
 
   closeModal('facilityModal');
   await loadFacilities();
-  alert(editing?'施設情報を更新しました':'新しい施設を追加しました');
+  const pos=getPos(result.data);
+  if(pos&&map)map.setView(pos,14);
+  renderMap();
+  alert(editing?'施設情報を更新しました':'新しい施設を追加しました。地図にも表示しました');
 }async function deleteFacility(id){
   if(!isAdmin){
     alert('管理者ログインが必要です');
